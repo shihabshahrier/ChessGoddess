@@ -6,6 +6,7 @@ import (
 	"github.com/chessgoddess/chesslens/internal/analysis"
 	"github.com/chessgoddess/chesslens/internal/game"
 	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/queue"
 	"github.com/chessgoddess/chesslens/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -14,13 +15,15 @@ type GameHandlers struct {
 	gameRepo        *repository.GameRepository
 	sessionRepo     *repository.AnalysisSessionRepository
 	analysisService *analysis.Service
+	q               *queue.Queue
 }
 
-func NewGameHandlers(gameRepo *repository.GameRepository, sessionRepo *repository.AnalysisSessionRepository, analysisService *analysis.Service) *GameHandlers {
+func NewGameHandlers(gameRepo *repository.GameRepository, sessionRepo *repository.AnalysisSessionRepository, analysisService *analysis.Service, q *queue.Queue) *GameHandlers {
 	return &GameHandlers{
 		gameRepo:        gameRepo,
 		sessionRepo:     sessionRepo,
 		analysisService: analysisService,
+		q:               q,
 	}
 }
 
@@ -150,14 +153,12 @@ func (h *GameHandlers) CreateAnalysis(c *gin.Context) {
 		return
 	}
 
-	// Start analysis asynchronously
-	if h.analysisService != nil {
-		go func() {
-			ctx := context.Background()
-			if err := h.analysisService.AnalyzeGame(ctx, session, game.PGN); err != nil {
-				h.sessionRepo.UpdateStatus(ctx, session.ID, "failed")
-			}
-		}()
+	// Enqueue analysis job to Redis queue
+	if h.q != nil {
+		if err := h.q.EnqueueAnalysis(session.ID, game.ID, depth); err != nil {
+			c.JSON(500, gin.H{"error": "failed to enqueue analysis job"})
+			return
+		}
 	}
 
 	c.JSON(201, gin.H{
@@ -177,4 +178,30 @@ func (h *GameHandlers) GetAnalysis(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"session": session})
+}
+
+func (h *GameHandlers) CreateSnapshot(c *gin.Context) {
+	sessionID := c.Query("session_id")
+	if sessionID == "" {
+		c.JSON(400, gin.H{"error": "session_id is required"})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if h.q != nil {
+		if err := h.q.EnqueueSnapshot(sessionID, userID); err != nil {
+			c.JSON(500, gin.H{"error": "failed to enqueue snapshot job"})
+			return
+		}
+	}
+
+	c.JSON(201, gin.H{
+		"message": "snapshot creation queued",
+		"session_id": sessionID,
+	})
 }

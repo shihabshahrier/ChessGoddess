@@ -140,3 +140,7 @@ func applyMove(fen, move string) string {
 func (s *Service) Close() error {
 	return s.engine.Close()
 }
+
+func (s *Service) GetMovesBySessionID(ctx context.Context, sessionID string) ([]models.Move, error) {
+	return s.moveRepo.ListBySessionID(ctx, sessionID)
+}

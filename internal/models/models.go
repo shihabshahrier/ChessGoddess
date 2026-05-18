@@ -57,13 +57,13 @@ type Move struct {
 }
 
 type Snapshot struct {
-	ID          string    `json:"id" db:"id"`
-	SessionID   string    `json:"session_id" db:"session_id"`
-	UserID      string    `json:"user_id" db:"user_id"`
-	Data        string    `json:"data" db:"data"` // JSON blob of full analysis
-	ShareToken  string    `json:"share_token" db:"share_token"`
-	IsPublic    bool      `json:"is_public" db:"is_public"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	ID          string                 `json:"id" db:"id"`
+	SessionID   string                 `json:"session_id" db:"session_id"`
+	UserID      string                 `json:"user_id" db:"user_id"`
+	Data        map[string]interface{} `json:"data" db:"data"`
+	ShareToken  string                 `json:"share_token" db:"share_token"`
+	IsPublic    bool                   `json:"is_public" db:"is_public"`
+	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
 }
 
 type AIExplanation struct {
