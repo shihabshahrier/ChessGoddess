@@ -12,6 +12,7 @@ interface MoveListProps {
   moves: Move[]
   interactive?: boolean
   onMoveClick?: (moveId: string) => void
+  activeMoveId?: string
 }
 
 const classificationColors: Record<string, string> = {
@@ -32,7 +33,7 @@ const classificationIcons: Record<string, string> = {
   best: '★',
 }
 
-export const MoveList = memo(function MoveList({ moves, interactive = false, onMoveClick }: MoveListProps) {
+export const MoveList = memo(function MoveList({ moves, interactive = false, onMoveClick, activeMoveId }: MoveListProps) {
   const movePairs: { white?: Move; black?: Move }[] = []
   
   for (let i = 0; i < moves.length; i += 2) {
@@ -51,19 +52,21 @@ export const MoveList = memo(function MoveList({ moves, interactive = false, onM
   }
 
   return (
-    <div className="space-y-1 font-mono text-sm">
+    <div className="space-y-1 font-mono text-sm max-h-96 overflow-y-auto">
       {movePairs.map((pair, idx) => (
         <div key={idx} className="flex items-center gap-2">
           <span className="text-chess-text-dim w-8">{idx + 1}.</span>
           
           {pair.white && (
             <button
-              className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-chess-elevated transition-colors flex-1 justify-start ${
-                interactive ? 'cursor-pointer' : 'cursor-default'
-              }`}
+              className={`flex items-center gap-1 px-2 py-1 rounded transition-colors flex-1 justify-start ${
+                pair.white.id === activeMoveId 
+                  ? 'bg-chess-gold/20 text-chess-gold' 
+                  : 'hover:bg-chess-elevated text-chess-text'
+              } ${interactive ? 'cursor-pointer' : 'cursor-default'}`}
               onClick={() => interactive && onMoveClick?.(pair.white!.id)}
             >
-              <span className="text-chess-text">{pair.white.san}</span>
+              <span>{pair.white.san}</span>
               {pair.white.classification && (
                 <span className={`text-xs ${classificationColors[pair.white.classification]}`}>
                   {classificationIcons[pair.white.classification]}
@@ -74,12 +77,14 @@ export const MoveList = memo(function MoveList({ moves, interactive = false, onM
           
           {pair.black && (
             <button
-              className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-chess-elevated transition-colors flex-1 justify-start ${
-                interactive ? 'cursor-pointer' : 'cursor-default'
-              }`}
+              className={`flex items-center gap-1 px-2 py-1 rounded transition-colors flex-1 justify-start ${
+                pair.black.id === activeMoveId 
+                  ? 'bg-chess-gold/20 text-chess-gold' 
+                  : 'hover:bg-chess-elevated text-chess-text'
+              } ${interactive ? 'cursor-pointer' : 'cursor-default'}`}
               onClick={() => interactive && onMoveClick?.(pair.black!.id)}
             >
-              <span className="text-chess-text">{pair.black.san}</span>
+              <span>{pair.black.san}</span>
               {pair.black.classification && (
                 <span className={`text-xs ${classificationColors[pair.black.classification]}`}>
                   {classificationIcons[pair.black.classification]}
