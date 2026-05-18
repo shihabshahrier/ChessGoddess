@@ -109,10 +109,10 @@ ChessGoddess (Project)
 | 2.2 | Worker scaling architecture | ✅ Complete |
 | 2.3 | Move classification (blunder/mistake/etc) | ✅ Complete |
 | 2.4 | Immutable snapshot creation | ✅ Complete |
-| 2.5 | Review UI with timeline | ⬜ Not Started |
-| 2.6 | Eval bar with spring physics | ⬜ Not Started |
-| 2.7 | Piece glide animations | ⬜ Not Started |
-| 2.8 | Scroll-to-scrub timeline | ⬜ Not Started |
+| 2.5 | Review UI with timeline | ✅ Complete |
+| 2.6 | Eval bar with spring physics | ✅ Complete |
+| 2.7 | Piece glide animations | ✅ Complete |
+| 2.8 | Scroll-to-scrub timeline | ✅ Complete |
 
 ### Phase 3: AI Layer & Sharing
 **Goal:** AI explanations, sharing ecosystem, polish
@@ -223,21 +223,21 @@ ChessGoddess (Project)
 ### Overall Progress
 ```
 Phase 1: ✅✅✅✅✅✅✅✅✅ 100%
-Phase 2: ✅✅✅✅⬜⬜⬜⬜ 50%
+Phase 2: ✅✅✅✅✅✅✅✅ 100%
 Phase 3: ⬜⬜⬜⬜⬜⬜⬜ 0%
 Phase 4: ⬜⬜⬜⬜⬜⬜⬜⬜ 0%
 ```
 
-### Total: 13/32 modules complete
+### Total: 17/32 modules complete
 
 ---
 
 ## 🎯 Next Steps
 
-1. **Phase 2.5:** Review UI with timeline
-2. **Phase 2.6:** Eval bar with spring physics
-3. **Phase 2.7:** Piece glide animations
-4. **Phase 2.8:** Scroll-to-scrub timeline
+1. **Phase 3.1:** OpenRouter integration for AI explanations
+2. **Phase 3.2:** AI explanation caching system
+3. **Phase 3.4:** Share links (/s/:snapshot_id) with Open Graph
+4. **Phase 3.6:** R2 storage for screenshots
 
 ---
 
@@ -253,4 +253,4 @@ Phase 4: ⬜⬜⬜⬜⬜⬜⬜⬜ 0%
 ---
 
 *Last Updated: 2026-05-19*
-*Status: Phase 2 - 50% Complete (13/32 modules) - Backend queue/snapshots done, UI next*
+*Status: Phase 2 Complete - 100% (17/32 modules) - Ready for Phase 3 (AI Layer)*
