@@ -249,8 +249,11 @@ Phase 4: ✅✅✅✅⬜⬜⬜✅ 63%
 - Frontend uses dark chess hall aesthetic
 - Motion system is critical to product identity
 - Share links are read-only and heavily cached
+- Docker NOT installed on this machine - use Homebrew or cloud services
+- 23 Go unit tests passing, integration tests skipped (no DB/Redis)
+- Playwright e2e tests written but not executed
 
 ---
 
 *Last Updated: 2026-05-19*
-*Status: 29/32 modules complete (91%) - All core features built, ready for deployment*
+*Status: 29/32 modules complete (91%) - Core features done, Docker not installed, 23 Go tests passing*
