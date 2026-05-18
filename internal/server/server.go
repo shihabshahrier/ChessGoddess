@@ -1,6 +1,9 @@
 package server
 
 import (
+	"log"
+
+	"github.com/chessgoddess/chesslens/internal/analysis"
 	"github.com/chessgoddess/chesslens/internal/auth"
 	"github.com/chessgoddess/chesslens/internal/config"
 	"github.com/chessgoddess/chesslens/internal/database"
@@ -34,10 +37,17 @@ func New(cfg *config.Config, db *database.Database, authService *auth.Service) *
 	// Initialize repositories
 	gameRepo := repository.NewGameRepository(db.Pool)
 	sessionRepo := repository.NewAnalysisSessionRepository(db.Pool)
+	moveRepo := repository.NewMoveRepository(db.Pool)
+
+	// Initialize analysis service
+	analysisService, err := analysis.NewService(cfg.StockfishPath, moveRepo, sessionRepo)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Stockfish engine: %v", err)
+	}
 
 	// Initialize handlers
 	authHandlers := NewAuthHandlers(authService)
-	gameHandlers := NewGameHandlers(gameRepo, sessionRepo)
+	gameHandlers := NewGameHandlers(gameRepo, sessionRepo, analysisService)
 
 	// API routes
 	api := r.Group("/api/v1")

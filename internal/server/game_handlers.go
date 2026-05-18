@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 
+	"github.com/chessgoddess/chesslens/internal/analysis"
 	"github.com/chessgoddess/chesslens/internal/game"
 	"github.com/chessgoddess/chesslens/internal/models"
 	"github.com/chessgoddess/chesslens/internal/repository"
@@ -10,14 +11,16 @@ import (
 )
 
 type GameHandlers struct {
-	gameRepo     *repository.GameRepository
-	sessionRepo  *repository.AnalysisSessionRepository
+	gameRepo        *repository.GameRepository
+	sessionRepo     *repository.AnalysisSessionRepository
+	analysisService *analysis.Service
 }
 
-func NewGameHandlers(gameRepo *repository.GameRepository, sessionRepo *repository.AnalysisSessionRepository) *GameHandlers {
+func NewGameHandlers(gameRepo *repository.GameRepository, sessionRepo *repository.AnalysisSessionRepository, analysisService *analysis.Service) *GameHandlers {
 	return &GameHandlers{
-		gameRepo:    gameRepo,
-		sessionRepo: sessionRepo,
+		gameRepo:        gameRepo,
+		sessionRepo:     sessionRepo,
+		analysisService: analysisService,
 	}
 }
 
@@ -123,6 +126,12 @@ func (h *GameHandlers) CreateAnalysis(c *gin.Context) {
 		return
 	}
 
+	game, err := h.gameRepo.GetByID(context.Background(), req.GameID)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "game not found"})
+		return
+	}
+
 	depth := req.Depth
 	if depth == 0 {
 		depth = 20
@@ -139,6 +148,16 @@ func (h *GameHandlers) CreateAnalysis(c *gin.Context) {
 	if err := h.sessionRepo.Create(context.Background(), session); err != nil {
 		c.JSON(500, gin.H{"error": "failed to create analysis session"})
 		return
+	}
+
+	// Start analysis asynchronously
+	if h.analysisService != nil {
+		go func() {
+			ctx := context.Background()
+			if err := h.analysisService.AnalyzeGame(ctx, session, game.PGN); err != nil {
+				h.sessionRepo.UpdateStatus(ctx, session.ID, "failed")
+			}
+		}()
 	}
 
 	c.JSON(201, gin.H{
