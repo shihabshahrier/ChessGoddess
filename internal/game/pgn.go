@@ -24,35 +24,34 @@ func ParsePGN(pgn string) (*PGN, error) {
 	headers := make(map[string]string)
 	lines := strings.Split(pgn, "\n")
 	
-	moveSection := false
 	var moveLines []string
 	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		
 		if line == "" {
-			if len(headers) > 0 {
-				moveSection = true
-			}
 			continue
 		}
 		
-		if !moveSection {
-			matches := headerRegex.FindStringSubmatch(line)
-			if len(matches) == 3 {
-				headers[matches[1]] = matches[2]
-			}
+		matches := headerRegex.FindStringSubmatch(line)
+		if len(matches) == 3 {
+			headers[matches[1]] = matches[2]
 		} else {
 			moveLines = append(moveLines, line)
 		}
 	}
 	
-	moves := parseMoves(strings.Join(moveLines, " "))
+	moves, result := parseMoves(strings.Join(moveLines, " "))
+	
+	pgnResult := headers["Result"]
+	if pgnResult == "" && result != "" {
+		pgnResult = result
+	}
 	
 	return &PGN{
 		Headers:     headers,
 		Moves:       moves,
-		Result:      headers["Result"],
+		Result:      pgnResult,
 		WhitePlayer: headers["White"],
 		BlackPlayer: headers["Black"],
 		Event:       headers["Event"],
@@ -61,7 +60,7 @@ func ParsePGN(pgn string) (*PGN, error) {
 	}, nil
 }
 
-func parseMoves(moveText string) []string {
+func parseMoves(moveText string) ([]string, string) {
 	moveText = strings.TrimSpace(moveText)
 	
 	moveText = regexp.MustCompile(`\d+\.`).ReplaceAllString(moveText, "")
@@ -84,11 +83,7 @@ func parseMoves(moveText string) []string {
 		}
 	}
 	
-	if result != "" {
-		cleanMoves = append(cleanMoves, result)
-	}
-	
-	return cleanMoves
+	return cleanMoves, result
 }
 
 func (p *PGN) GetHeader(key string) string {
