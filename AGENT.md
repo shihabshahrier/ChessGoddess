@@ -125,20 +125,20 @@ ChessGoddess (Project)
 | 3.4 | Share links (/s/:snapshot_id) | ✅ Complete |
 | 3.5 | Open Graph preview | ✅ Complete |
 | 3.6 | R2 storage for screenshots | ✅ Complete |
-| 3.7 | Image-to-FEN (optional) | ⬜ Not Started |
+| 3.7 | Image-to-FEN (optional) | ✅ Complete |
 
 ### Phase 4: Polish & Production
 **Goal:** Testing, CI/CD, deployment, performance
 
 | Module | Description | Status |
 |--------|-------------|--------|
-| 4.1 | Frontend tests (Playwright + unit) | ⬜ Not Started |
+| 4.1 | Frontend tests (Playwright + unit) | ✅ Complete |
 | 4.2 | Backend tests (Go tests) | ✅ Complete |
-| 4.3 | Snapshot integrity tests | ⬜ Not Started |
+| 4.3 | Snapshot integrity tests | ✅ Complete |
 | 4.4 | GitHub Actions CI/CD | ✅ Complete |
-| 4.5 | Cloudflare Pages deploy | ⬜ Not Started |
-| 4.6 | Cloud Run/ECS deploy | ⬜ Not Started |
-| 4.7 | Performance optimization | ⬜ Not Started |
+| 4.5 | Cloudflare Pages deploy | ⬜ Config Ready |
+| 4.6 | Cloud Run/ECS deploy | ⬜ Config Ready |
+| 4.7 | Performance optimization | ⬜ Config Ready |
 | 4.8 | Dark chess hall aesthetic | ✅ Complete |
 
 ---
@@ -224,20 +224,20 @@ ChessGoddess (Project)
 ```
 Phase 1: ✅✅✅✅✅✅✅✅✅ 100%
 Phase 2: ✅✅✅✅✅✅✅✅ 100%
-Phase 3: ✅✅✅✅✅✅⬜ 86%
-Phase 4: ⬜✅⬜✅⬜⬜⬜✅ 38%
+Phase 3: ✅✅✅✅✅✅✅ 100%
+Phase 4: ✅✅✅✅⬜⬜⬜✅ 63%
 ```
 
-### Total: 26/32 modules complete
+### Total: 29/32 modules complete (91%)
 
 ---
 
 ## 🎯 Next Steps
 
-1. **Phase 3.7:** Image-to-FEN (optional)
-2. **Phase 4.1:** Frontend tests (Playwright + unit)
-3. **Phase 4.3:** Snapshot integrity tests
-4. **Deploy:** Configure Cloudflare Pages + Cloud Run
+1. **Deploy:** Configure Cloudflare Pages for frontend
+2. **Deploy:** Set up Cloud Run / ECS for backend
+3. **Deploy:** Configure environment variables and secrets
+4. **Monitor:** Set up logging and alerting
 
 ---
 
@@ -253,4 +253,4 @@ Phase 4: ⬜✅⬜✅⬜⬜⬜✅ 38%
 ---
 
 *Last Updated: 2026-05-19*
-*Status: 26/32 modules complete (81%) - CI/CD, tests, production configs done*
+*Status: 29/32 modules complete (91%) - All core features built, ready for deployment*
