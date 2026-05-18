@@ -1,7 +1,9 @@
 package server
 
 import (
+	"github.com/chessgoddess/chesslens/internal/auth"
 	"github.com/chessgoddess/chesslens/internal/config"
+	"github.com/chessgoddess/chesslens/internal/database"
 	"github.com/chessgoddess/chesslens/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -9,9 +11,11 @@ import (
 type Server struct {
 	router *gin.Engine
 	config *config.Config
+	db     *database.Database
+	auth   *auth.Service
 }
 
-func New(cfg *config.Config) *Server {
+func New(cfg *config.Config, db *database.Database, authService *auth.Service) *Server {
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -26,6 +30,9 @@ func New(cfg *config.Config) *Server {
 	// Health check
 	r.GET("/health", healthHandler)
 
+	// Initialize handlers
+	authHandlers := NewAuthHandlers(authService)
+
 	// API routes
 	api := r.Group("/api/v1")
 	{
@@ -35,8 +42,8 @@ func New(cfg *config.Config) *Server {
 		// Auth routes
 		auth := api.Group("/auth")
 		{
-			auth.GET("/google/url", getGoogleAuthURLHandler)
-			auth.GET("/google/callback", googleCallbackHandler)
+			auth.GET("/google/url", authHandlers.GetGoogleAuthURL)
+			auth.GET("/google/callback", authHandlers.GoogleCallback)
 		}
 
 		// Protected routes
@@ -55,6 +62,8 @@ func New(cfg *config.Config) *Server {
 	return &Server{
 		router: r,
 		config: cfg,
+		db:     db,
+		auth:   authService,
 	}
 }
 
@@ -68,8 +77,6 @@ func healthHandler(c *gin.Context) {
 
 // Placeholder handlers - will be implemented in respective modules
 func getSnapshotHandler(c *gin.Context)        { c.JSON(200, gin.H{"message": "not implemented"}) }
-func getGoogleAuthURLHandler(c *gin.Context)   { c.JSON(200, gin.H{"message": "not implemented"}) }
-func googleCallbackHandler(c *gin.Context)     { c.JSON(200, gin.H{"message": "not implemented"}) }
 func uploadGameHandler(c *gin.Context)         { c.JSON(200, gin.H{"message": "not implemented"}) }
 func createAnalysisHandler(c *gin.Context)     { c.JSON(200, gin.H{"message": "not implemented"}) }
 func getAnalysisHandler(c *gin.Context)        { c.JSON(200, gin.H{"message": "not implemented"}) }

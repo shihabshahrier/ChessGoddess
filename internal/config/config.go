@@ -51,6 +51,13 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func (c *Config) GoogleRedirectURL() string {
+	if redirect := getEnv("GOOGLE_REDIRECT_URL", ""); redirect != "" {
+		return redirect
+	}
+	return "http://localhost:8080/api/v1/auth/google/callback"
+}
+
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
