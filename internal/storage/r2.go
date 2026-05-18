@@ -63,11 +63,15 @@ func (s *R2Client) UploadScreenshot(ctx context.Context, userID string, data []b
 
 func (c *R2Client) UploadThumbnail(ctx context.Context, userID string, data []byte) (string, error) {
 	key := fmt.Sprintf("thumbnails/%s/%s.jpg", userID, generateKey())
-	return s.UploadImage(ctx, key, bytes.NewReader(data), "image/jpeg")
+	return c.UploadImage(ctx, key, bytes.NewReader(data), "image/jpeg")
 }
 
 func (c *R2Client) GetURL(key string) string {
-	return fmt.Sprintf("https://%s.%s/%s", c.bucket, c.client.Options().BaseEndpoint, key)
+	endpoint := ""
+	if c.client.Options().BaseEndpoint != nil {
+		endpoint = *c.client.Options().BaseEndpoint
+	}
+	return fmt.Sprintf("https://%s.%s/%s", c.bucket, endpoint, key)
 }
 
 func (c *R2Client) Delete(ctx context.Context, key string) error {

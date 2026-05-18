@@ -11,6 +11,7 @@ import (
 	"github.com/chessgoddess/chesslens/internal/middleware"
 	"github.com/chessgoddess/chesslens/internal/queue"
 	"github.com/chessgoddess/chesslens/internal/repository"
+	"github.com/chessgoddess/chesslens/internal/vision"
 	"github.com/chessgoddess/chesslens/internal/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -81,6 +82,13 @@ func New(cfg *config.Config, db *database.Database, authService *auth.Service) *
 	snapshotHandlers := NewSnapshotHandlers(snapshotRepo)
 	aiHandlers := NewAIHandlers(aiService, moveRepo)
 
+	// Initialize vision client
+	var visionClient *vision.ImageToFENClient
+	if cfg.OpenRouterKey != "" {
+		visionClient = vision.NewImageToFENClient(cfg.OpenRouterKey, "")
+	}
+	visionHandlers := NewVisionHandlers(visionClient)
+
 	// API routes
 	api := r.Group("/api/v1")
 	{
@@ -113,6 +121,13 @@ func New(cfg *config.Config, db *database.Database, authService *auth.Service) *
 				ai.POST("/explain", aiHandlers.ExplainMove)
 				ai.POST("/explain-blunder", aiHandlers.ExplainBlunder)
 				ai.GET("/explanation/:move_id", aiHandlers.GetExplanation)
+			}
+
+			// Vision routes
+			vision := protected.Group("/vision")
+			{
+				vision.POST("/image-to-fen", visionHandlers.ImageToFEN)
+				vision.POST("/image-to-fen-url", visionHandlers.ImageToFENURL)
 			}
 		}
 	}
