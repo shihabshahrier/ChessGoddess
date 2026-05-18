@@ -116,3 +116,22 @@ func (s *Service) ClearAuthCookie(w http.ResponseWriter) {
 func (s *Service) GetHTTPClient(ctx context.Context, token *oauth2.Token) *http.Client {
 	return s.oauthConf.Client(ctx, token)
 }
+
+func ValidateJWT(tokenString, jwtSecret string) (*UserClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(jwtSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}

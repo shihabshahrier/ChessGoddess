@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chessgoddess/chesslens/internal/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,9 +56,16 @@ func Auth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// TODO: Implement JWT validation
-		// For now, just check token exists
-		c.Set("token", tokenString)
+		claims, err := auth.ValidateJWT(tokenString, jwtSecret)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("email", claims.Email)
+		c.Set("name", claims.Name)
 		c.Next()
 	}
 }

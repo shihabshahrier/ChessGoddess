@@ -5,6 +5,7 @@ import (
 	"github.com/chessgoddess/chesslens/internal/config"
 	"github.com/chessgoddess/chesslens/internal/database"
 	"github.com/chessgoddess/chesslens/internal/middleware"
+	"github.com/chessgoddess/chesslens/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,8 +31,13 @@ func New(cfg *config.Config, db *database.Database, authService *auth.Service) *
 	// Health check
 	r.GET("/health", healthHandler)
 
+	// Initialize repositories
+	gameRepo := repository.NewGameRepository(db.Pool)
+	sessionRepo := repository.NewAnalysisSessionRepository(db.Pool)
+
 	// Initialize handlers
 	authHandlers := NewAuthHandlers(authService)
+	gameHandlers := NewGameHandlers(gameRepo, sessionRepo)
 
 	// API routes
 	api := r.Group("/api/v1")
@@ -50,12 +56,12 @@ func New(cfg *config.Config, db *database.Database, authService *auth.Service) *
 		protected := api.Group("")
 		protected.Use(middleware.Auth(cfg.JWTSecret))
 		{
-			protected.POST("/games/upload", uploadGameHandler)
-			protected.POST("/analysis", createAnalysisHandler)
-			protected.GET("/analysis/:id", getAnalysisHandler)
-			protected.GET("/games", listGamesHandler)
-			protected.GET("/games/:id", getGameHandler)
-			protected.DELETE("/games/:id", deleteGameHandler)
+			protected.POST("/games/upload", gameHandlers.UploadGame)
+			protected.POST("/analysis", gameHandlers.CreateAnalysis)
+			protected.GET("/analysis/:id", gameHandlers.GetAnalysis)
+			protected.GET("/games", gameHandlers.ListGames)
+			protected.GET("/games/:id", gameHandlers.GetGame)
+			protected.DELETE("/games/:id", gameHandlers.DeleteGame)
 		}
 	}
 
@@ -76,10 +82,4 @@ func healthHandler(c *gin.Context) {
 }
 
 // Placeholder handlers - will be implemented in respective modules
-func getSnapshotHandler(c *gin.Context)        { c.JSON(200, gin.H{"message": "not implemented"}) }
-func uploadGameHandler(c *gin.Context)         { c.JSON(200, gin.H{"message": "not implemented"}) }
-func createAnalysisHandler(c *gin.Context)     { c.JSON(200, gin.H{"message": "not implemented"}) }
-func getAnalysisHandler(c *gin.Context)        { c.JSON(200, gin.H{"message": "not implemented"}) }
-func listGamesHandler(c *gin.Context)          { c.JSON(200, gin.H{"message": "not implemented"}) }
-func getGameHandler(c *gin.Context)            { c.JSON(200, gin.H{"message": "not implemented"}) }
-func deleteGameHandler(c *gin.Context)         { c.JSON(200, gin.H{"message": "not implemented"}) }
+func getSnapshotHandler(c *gin.Context) { c.JSON(200, gin.H{"message": "not implemented"}) }
