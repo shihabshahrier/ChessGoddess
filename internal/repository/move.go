@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,7 +16,7 @@ func NewMoveRepository(pool *pgxpool.Pool) *MoveRepository {
 	return &MoveRepository{pool: pool}
 }
 
-func (r *MoveRepository) Create(ctx context.Context, move *models.Move) error {
+func (r *MoveRepository) Create(ctx context.Context, move *model.Move) error {
 	query := `
 		INSERT INTO moves (session_id, move_number, fen, san, evaluation, best_move, classification, depth)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -33,7 +33,7 @@ func (r *MoveRepository) Create(ctx context.Context, move *models.Move) error {
 	return nil
 }
 
-func (r *MoveRepository) ListBySessionID(ctx context.Context, sessionID string) ([]models.Move, error) {
+func (r *MoveRepository) ListBySessionID(ctx context.Context, sessionID string) ([]model.Move, error) {
 	query := `
 		SELECT id, session_id, move_number, fen, san, evaluation, best_move, classification, depth, created_at
 		FROM moves
@@ -46,9 +46,9 @@ func (r *MoveRepository) ListBySessionID(ctx context.Context, sessionID string) 
 	}
 	defer rows.Close()
 	
-	var moves []models.Move
+	var moves []model.Move
 	for rows.Next() {
-		var move models.Move
+		var move model.Move
 		err := rows.Scan(
 			&move.ID, &move.SessionID, &move.MoveNumber, &move.FEN, &move.SAN,
 			&move.Evaluation, &move.BestMove, &move.Classification, &move.Depth, &move.CreatedAt,
@@ -62,13 +62,13 @@ func (r *MoveRepository) ListBySessionID(ctx context.Context, sessionID string) 
 	return moves, nil
 }
 
-func (r *MoveRepository) GetByID(ctx context.Context, id string) (*models.Move, error) {
+func (r *MoveRepository) GetByID(ctx context.Context, id string) (*model.Move, error) {
 	query := `
 		SELECT id, session_id, move_number, fen, san, evaluation, best_move, classification, depth, created_at
 		FROM moves
 		WHERE id = $1
 	`
-	move := &models.Move{}
+	move := &model.Move{}
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&move.ID, &move.SessionID, &move.MoveNumber, &move.FEN, &move.SAN,
 		&move.Evaluation, &move.BestMove, &move.Classification, &move.Depth, &move.CreatedAt,

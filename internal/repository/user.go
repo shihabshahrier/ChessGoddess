@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,7 +17,7 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
-func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
+func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
 		INSERT INTO users (email, name, avatar_url, google_id)
 		VALUES ($1, $2, $3, $4)
@@ -31,13 +31,13 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-func (r *UserRepository) GetByGoogleID(ctx context.Context, googleID string) (*models.User, error) {
+func (r *UserRepository) GetByGoogleID(ctx context.Context, googleID string) (*model.User, error) {
 	query := `
 		SELECT id, email, name, avatar_url, google_id, created_at, updated_at
 		FROM users
 		WHERE google_id = $1
 	`
-	user := &models.User{}
+	user := &model.User{}
 	err := r.pool.QueryRow(ctx, query, googleID).
 		Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &user.GoogleID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
@@ -46,13 +46,13 @@ func (r *UserRepository) GetByGoogleID(ctx context.Context, googleID string) (*m
 	return user, nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, error) {
+func (r *UserRepository) GetByID(ctx context.Context, id string) (*model.User, error) {
 	query := `
 		SELECT id, email, name, avatar_url, google_id, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
-	user := &models.User{}
+	user := &model.User{}
 	err := r.pool.QueryRow(ctx, query, id).
 		Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &user.GoogleID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	return user, nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
+func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	query := `
 		UPDATE users
 		SET email = $1, name = $2, avatar_url = $3, updated_at = $4

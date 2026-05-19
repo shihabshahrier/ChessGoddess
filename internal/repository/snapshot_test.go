@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -50,7 +50,7 @@ func TestSnapshotRepository_CreateAndRetrieve(t *testing.T) {
 }
 
 func TestSnapshotData_Integrity(t *testing.T) {
-	snapshot := models.Snapshot{
+	snapshot := model.Snapshot{
 		ID:         "snap-1",
 		SessionID:  "sess-1",
 		UserID:     "user-1",
@@ -93,7 +93,7 @@ func TestSnapshotData_Integrity(t *testing.T) {
 }
 
 func TestSnapshotData_Immutable(t *testing.T) {
-	original := models.Snapshot{
+	original := model.Snapshot{
 		ID:         "snap-1",
 		SessionID:  "sess-1",
 		UserID:     "user-1",

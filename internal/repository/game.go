@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,7 +17,7 @@ func NewGameRepository(pool *pgxpool.Pool) *GameRepository {
 	return &GameRepository{pool: pool}
 }
 
-func (r *GameRepository) Create(ctx context.Context, game *models.Game) error {
+func (r *GameRepository) Create(ctx context.Context, game *model.Game) error {
 	query := `
 		INSERT INTO games (user_id, pgn, fen, white_player, black_player, result, opening, time_control, event, date)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -34,13 +34,13 @@ func (r *GameRepository) Create(ctx context.Context, game *models.Game) error {
 	return nil
 }
 
-func (r *GameRepository) GetByID(ctx context.Context, id string) (*models.Game, error) {
+func (r *GameRepository) GetByID(ctx context.Context, id string) (*model.Game, error) {
 	query := `
 		SELECT id, user_id, pgn, fen, white_player, black_player, result, opening, time_control, event, date, created_at, updated_at
 		FROM games
 		WHERE id = $1
 	`
-	game := &models.Game{}
+	game := &model.Game{}
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&game.ID, &game.UserID, &game.PGN, &game.FEN, &game.WhitePlayer, &game.BlackPlayer,
 		&game.Result, &game.Opening, &game.TimeControl, &game.Event, &game.Date,
@@ -53,7 +53,7 @@ func (r *GameRepository) GetByID(ctx context.Context, id string) (*models.Game, 
 	return game, nil
 }
 
-func (r *GameRepository) ListByUserID(ctx context.Context, userID string, limit, offset int) ([]models.Game, error) {
+func (r *GameRepository) ListByUserID(ctx context.Context, userID string, limit, offset int) ([]model.Game, error) {
 	query := `
 		SELECT id, user_id, pgn, fen, white_player, black_player, result, opening, time_control, event, date, created_at, updated_at
 		FROM games
@@ -67,9 +67,9 @@ func (r *GameRepository) ListByUserID(ctx context.Context, userID string, limit,
 	}
 	defer rows.Close()
 	
-	var games []models.Game
+	var games []model.Game
 	for rows.Next() {
-		var game models.Game
+		var game model.Game
 		err := rows.Scan(
 			&game.ID, &game.UserID, &game.PGN, &game.FEN, &game.WhitePlayer, &game.BlackPlayer,
 			&game.Result, &game.Opening, &game.TimeControl, &game.Event, &game.Date,
@@ -101,7 +101,7 @@ func NewAnalysisSessionRepository(pool *pgxpool.Pool) *AnalysisSessionRepository
 	return &AnalysisSessionRepository{pool: pool}
 }
 
-func (r *AnalysisSessionRepository) Create(ctx context.Context, session *models.AnalysisSession) error {
+func (r *AnalysisSessionRepository) Create(ctx context.Context, session *model.AnalysisSession) error {
 	query := `
 		INSERT INTO analysis_sessions (game_id, user_id, engine_config, depth, status)
 		VALUES ($1, $2, $3, $4, $5)
@@ -117,13 +117,13 @@ func (r *AnalysisSessionRepository) Create(ctx context.Context, session *models.
 	return nil
 }
 
-func (r *AnalysisSessionRepository) GetByID(ctx context.Context, id string) (*models.AnalysisSession, error) {
+func (r *AnalysisSessionRepository) GetByID(ctx context.Context, id string) (*model.AnalysisSession, error) {
 	query := `
 		SELECT id, game_id, user_id, engine_config, depth, status, started_at, completed_at, created_at, updated_at
 		FROM analysis_sessions
 		WHERE id = $1
 	`
-	session := &models.AnalysisSession{}
+	session := &model.AnalysisSession{}
 	var engineConfig []byte
 	
 	err := r.pool.QueryRow(ctx, query, id).Scan(

@@ -25,6 +25,7 @@ interface Snapshot {
 interface Move {
   id: string
   move_number: number
+  moveNumber: number
   san: string
   classification?: 'blunder' | 'mistake' | 'inaccuracy' | 'good' | 'excellent' | 'best'
   evaluation?: number
@@ -40,14 +41,14 @@ const mockSnapshot: Snapshot = {
   data: {
     session: { id: 'sess_456', depth: 20, status: 'completed', created_at: '2026-05-19T10:00:00Z' },
     moves: [
-      { id: '1', move_number: 1, san: 'e4', classification: 'best', evaluation: 0.3, fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1' },
-      { id: '2', move_number: 2, san: 'e5', classification: 'best', evaluation: 0.2, fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' },
-      { id: '3', move_number: 3, san: 'Nf3', classification: 'best', evaluation: 0.4, fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2' },
-      { id: '4', move_number: 4, san: 'Nc6', classification: 'good', evaluation: 0.3, fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3' },
-      { id: '5', move_number: 5, san: 'Bb5', classification: 'best', evaluation: 0.5, fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
-      { id: '6', move_number: 6, san: 'a6', classification: 'inaccuracy', evaluation: -0.2, fen: 'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4' },
-      { id: '7', move_number: 7, san: 'Bxc6', classification: 'good', evaluation: 0.3, fen: 'r1bqkbnr/1ppp1ppp/p1B5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4' },
-      { id: '8', move_number: 8, san: 'dxc6', classification: 'mistake', evaluation: -0.8, fen: 'r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5' },
+      { id: '1', move_number: 1, moveNumber: 1, san: 'e4', classification: 'best', evaluation: 0.3, fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1' },
+      { id: '2', move_number: 2, moveNumber: 2, san: 'e5', classification: 'best', evaluation: 0.2, fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' },
+      { id: '3', move_number: 3, moveNumber: 3, san: 'Nf3', classification: 'best', evaluation: 0.4, fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2' },
+      { id: '4', move_number: 4, moveNumber: 4, san: 'Nc6', classification: 'good', evaluation: 0.3, fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3' },
+      { id: '5', move_number: 5, moveNumber: 5, san: 'Bb5', classification: 'best', evaluation: 0.5, fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
+      { id: '6', move_number: 6, moveNumber: 6, san: 'a6', classification: 'inaccuracy', evaluation: -0.2, fen: 'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4' },
+      { id: '7', move_number: 7, moveNumber: 7, san: 'Bxc6', classification: 'good', evaluation: 0.3, fen: 'r1bqkbnr/1ppp1ppp/p1B5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4' },
+      { id: '8', move_number: 8, moveNumber: 8, san: 'dxc6', classification: 'mistake', evaluation: -0.8, fen: 'r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5' },
     ],
   },
 }

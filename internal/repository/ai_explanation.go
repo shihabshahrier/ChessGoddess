@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,15 +16,15 @@ func NewAIExplanationRepository(pool *pgxpool.Pool) *AIExplanationRepository {
 	return &AIExplanationRepository{pool: pool}
 }
 
-func (r *AIExplanationRepository) Create(ctx context.Context, sessionID, moveID, fen, content, model string) error {
+func (r *AIExplanationRepository) Create(ctx context.Context, sessionID, moveID, fen, content, llmModel string) error {
 	query := `
 		INSERT INTO ai_explanations (session_id, move_id, fen, content, model)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at
 	`
-	
-	var explanation models.AIExplanation
-	err := r.pool.QueryRow(ctx, query, sessionID, moveID, fen, content, model).
+
+	var explanation model.AIExplanation
+	err := r.pool.QueryRow(ctx, query, sessionID, moveID, fen, content, llmModel).
 		Scan(&explanation.ID, &explanation.CreatedAt)
 	
 	if err != nil {
@@ -34,14 +34,14 @@ func (r *AIExplanationRepository) Create(ctx context.Context, sessionID, moveID,
 	return nil
 }
 
-func (r *AIExplanationRepository) GetByMoveID(ctx context.Context, moveID string) (*models.AIExplanation, error) {
+func (r *AIExplanationRepository) GetByMoveID(ctx context.Context, moveID string) (*model.AIExplanation, error) {
 	query := `
 		SELECT id, session_id, move_id, fen, content, model, created_at
 		FROM ai_explanations
 		WHERE move_id = $1
 	`
 	
-	explanation := &models.AIExplanation{}
+	explanation := &model.AIExplanation{}
 	err := r.pool.QueryRow(ctx, query, moveID).Scan(
 		&explanation.ID, &explanation.SessionID, &explanation.MoveID,
 		&explanation.FEN, &explanation.Content, &explanation.Model, &explanation.CreatedAt,
@@ -54,7 +54,7 @@ func (r *AIExplanationRepository) GetByMoveID(ctx context.Context, moveID string
 	return explanation, nil
 }
 
-func (r *AIExplanationRepository) GetByFEN(ctx context.Context, fen string) (*models.AIExplanation, error) {
+func (r *AIExplanationRepository) GetByFEN(ctx context.Context, fen string) (*model.AIExplanation, error) {
 	query := `
 		SELECT id, session_id, move_id, fen, content, model, created_at
 		FROM ai_explanations
@@ -63,7 +63,7 @@ func (r *AIExplanationRepository) GetByFEN(ctx context.Context, fen string) (*mo
 		LIMIT 1
 	`
 	
-	explanation := &models.AIExplanation{}
+	explanation := &model.AIExplanation{}
 	err := r.pool.QueryRow(ctx, query, fen).Scan(
 		&explanation.ID, &explanation.SessionID, &explanation.MoveID,
 		&explanation.FEN, &explanation.Content, &explanation.Model, &explanation.CreatedAt,
@@ -76,7 +76,7 @@ func (r *AIExplanationRepository) GetByFEN(ctx context.Context, fen string) (*mo
 	return explanation, nil
 }
 
-func (r *AIExplanationRepository) ListBySessionID(ctx context.Context, sessionID string) ([]models.AIExplanation, error) {
+func (r *AIExplanationRepository) ListBySessionID(ctx context.Context, sessionID string) ([]model.AIExplanation, error) {
 	query := `
 		SELECT id, session_id, move_id, fen, content, model, created_at
 		FROM ai_explanations
@@ -90,9 +90,9 @@ func (r *AIExplanationRepository) ListBySessionID(ctx context.Context, sessionID
 	}
 	defer rows.Close()
 	
-	var explanations []models.AIExplanation
+	var explanations []model.AIExplanation
 	for rows.Next() {
-		var exp models.AIExplanation
+		var exp model.AIExplanation
 		err := rows.Scan(
 			&exp.ID, &exp.SessionID, &exp.MoveID,
 			&exp.FEN, &exp.Content, &exp.Model, &exp.CreatedAt,

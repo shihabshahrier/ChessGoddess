@@ -32,7 +32,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend.prod
+      dockerfile: docker/backend/Dockerfile.prod
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/chesslens?sslmode=disable
       REDIS_URL: redis://redis:6379
@@ -52,7 +52,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: ../Dockerfile.frontend.prod
+      dockerfile: ../docker/frontend/Dockerfile.prod
     ports:
       - "80:80"
     depends_on:

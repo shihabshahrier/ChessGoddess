@@ -2,40 +2,76 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/chessgoddess/chesslens/internal/api"
 	"github.com/chessgoddess/chesslens/internal/auth"
 	"github.com/chessgoddess/chesslens/internal/config"
-	"github.com/chessgoddess/chesslens/internal/database"
-	"github.com/chessgoddess/chesslens/internal/server"
+	"github.com/chessgoddess/chesslens/internal/db"
 )
 
 func main() {
-	ctx := context.Background()
-
+	// Structured JSON logging in production, text in development.
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
-	db, err := database.New(ctx, cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	if cfg.Environment == "production" {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	}
-	defer db.Close()
+
+	ctx := context.Background()
+
+	database, err := db.New(ctx, cfg)
+	if err != nil {
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer database.Close()
 
 	authService := auth.NewService(cfg)
 
-	srv := server.New(cfg, db, authService)
+	srv := api.New(cfg, database, authService)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	httpServer := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      srv.Handler(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("ChessLens server starting on port %s", port)
-	if err := srv.Start(":" + port); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// Start server in background goroutine.
+	go func() {
+		slog.Info("chesslens server starting", "port", cfg.Port, "env", cfg.Environment)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Block until OS signal received.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutting down gracefully...")
+
+	// Give in-flight requests 30s to complete.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		slog.Error("forced shutdown", "error", err)
 	}
+
+	srv.Stop()
+	slog.Info("server exited")
 }

@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chessgoddess/chesslens/internal/config"
@@ -104,5 +106,80 @@ func TestGenerateState(t *testing.T) {
 
 	if state1 == state2 {
 		t.Error("expected different states")
+	}
+}
+
+func TestSetAuthCookie(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "secret", Environment: "development"}
+	svc := NewService(cfg)
+
+	w := httptest.NewRecorder()
+	svc.SetAuthCookie(w, "mytoken")
+
+	cookies := w.Result().Cookies()
+	var found bool
+	for _, c := range cookies {
+		if c.Name == "auth_token" && c.Value == "mytoken" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("auth_token cookie not set")
+	}
+}
+
+func TestClearAuthCookie(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "secret", Environment: "development"}
+	svc := NewService(cfg)
+
+	w := httptest.NewRecorder()
+	svc.ClearAuthCookie(w)
+
+	cookies := w.Result().Cookies()
+	var found bool
+	for _, c := range cookies {
+		if c.Name == "auth_token" && c.MaxAge == -1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("auth_token clear cookie not set")
+	}
+}
+
+func TestPackageLevelValidateJWT(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "secret"}
+	svc := NewService(cfg)
+
+	token, err := svc.GenerateJWT("u1", "a@b.com", "Name", "")
+	if err != nil {
+		t.Fatalf("GenerateJWT: %v", err)
+	}
+
+	claims, err := ValidateJWT(token, "secret")
+	if err != nil {
+		t.Fatalf("ValidateJWT: %v", err)
+	}
+	if claims.UserID != "u1" {
+		t.Errorf("want u1, got %s", claims.UserID)
+	}
+}
+
+func TestPackageLevelValidateJWT_WrongSecret(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "secret"}
+	svc := NewService(cfg)
+
+	token, _ := svc.GenerateJWT("u1", "a@b.com", "Name", "")
+	_, err := ValidateJWT(token, "wrongsecret")
+	if err == nil {
+		t.Error("expected error for wrong secret")
+	}
+}
+
+func TestPackageLevelValidateJWT_InvalidAlgorithm(t *testing.T) {
+	// Ensure unexpected signing method is rejected.
+	_, err := ValidateJWT(strings.Repeat("a", 200), "secret")
+	if err == nil {
+		t.Error("expected error for garbage token")
 	}
 }

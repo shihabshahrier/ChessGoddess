@@ -8,7 +8,7 @@ interface AIExplanationPanelProps {
   onExplain: (moveId: string) => Promise<string>
 }
 
-export function AIExplanationPanel({ moveId, classification, evaluation, onExplain }: AIExplanationPanelProps) {
+export function AIExplanationPanel({ moveId, classification, evaluation: _evaluation, onExplain }: AIExplanationPanelProps) {
   const [explanation, setExplanation] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)

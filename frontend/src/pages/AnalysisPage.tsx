@@ -4,7 +4,7 @@ import { EvalBar } from '../components/EvalBar'
 import { MoveList } from '../components/MoveList'
 
 export function AnalysisPage() {
-  const { id } = useParams()
+  const { id: _id } = useParams()
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

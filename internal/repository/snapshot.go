@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/chessgoddess/chesslens/internal/models"
+	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,7 +44,7 @@ func (r *SnapshotRepository) Create(ctx context.Context, sessionID, userID strin
 		RETURNING id, created_at
 	`
 
-	snapshot := &models.Snapshot{}
+	snapshot := &model.Snapshot{}
 	err = r.pool.QueryRow(ctx, query, sessionID, userID, dataJSON, shareToken, false).
 		Scan(&snapshot.ID, &snapshot.CreatedAt)
 
@@ -59,14 +59,14 @@ func (r *SnapshotRepository) Create(ctx context.Context, sessionID, userID strin
 	return nil
 }
 
-func (r *SnapshotRepository) GetByShareToken(ctx context.Context, shareToken string) (*models.Snapshot, error) {
+func (r *SnapshotRepository) GetByShareToken(ctx context.Context, shareToken string) (*model.Snapshot, error) {
 	query := `
 		SELECT id, session_id, user_id, data, share_token, is_public, created_at
 		FROM snapshots
 		WHERE share_token = $1
 	`
 
-	snapshot := &models.Snapshot{}
+	snapshot := &model.Snapshot{}
 	var dataJSON []byte
 
 	err := r.pool.QueryRow(ctx, query, shareToken).
@@ -83,14 +83,14 @@ func (r *SnapshotRepository) GetByShareToken(ctx context.Context, shareToken str
 	return snapshot, nil
 }
 
-func (r *SnapshotRepository) GetByID(ctx context.Context, id string) (*models.Snapshot, error) {
+func (r *SnapshotRepository) GetByID(ctx context.Context, id string) (*model.Snapshot, error) {
 	query := `
 		SELECT id, session_id, user_id, data, share_token, is_public, created_at
 		FROM snapshots
 		WHERE id = $1
 	`
 
-	snapshot := &models.Snapshot{}
+	snapshot := &model.Snapshot{}
 	var dataJSON []byte
 
 	err := r.pool.QueryRow(ctx, query, id).
@@ -107,7 +107,7 @@ func (r *SnapshotRepository) GetByID(ctx context.Context, id string) (*models.Sn
 	return snapshot, nil
 }
 
-func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID string, limit, offset int) ([]models.Snapshot, error) {
+func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID string, limit, offset int) ([]model.Snapshot, error) {
 	query := `
 		SELECT id, session_id, user_id, data, share_token, is_public, created_at
 		FROM snapshots
@@ -122,9 +122,9 @@ func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID string, li
 	}
 	defer rows.Close()
 
-	var snapshots []models.Snapshot
+	var snapshots []model.Snapshot
 	for rows.Next() {
-		var snapshot models.Snapshot
+		var snapshot model.Snapshot
 		var dataJSON []byte
 
 		err := rows.Scan(&snapshot.ID, &snapshot.SessionID, &snapshot.UserID, &dataJSON, &snapshot.ShareToken, &snapshot.IsPublic, &snapshot.CreatedAt)
