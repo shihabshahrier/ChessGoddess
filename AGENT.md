@@ -288,7 +288,7 @@ ChessGoddess/
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | `postgres://postgres:postgres@localhost:5432/chesslens?sslmode=disable` | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | `postgres://postgres:postgres@localhost:5432/chessgoddess?sslmode=disable` | PostgreSQL connection string |
 | `REDIS_URL` | Yes | `redis://localhost:6379` | Redis connection string |
 | `GOOGLE_CLIENT_ID` | Yes | — | Google OAuth2 client ID |
 | `GOOGLE_CLIENT_SECRET` | Yes | — | Google OAuth2 client secret |
@@ -297,7 +297,7 @@ ChessGoddess/
 | `ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated CORS origins |
 | `R2_ACCESS_KEY` | No | — | Cloudflare R2 access key |
 | `R2_SECRET_KEY` | No | — | Cloudflare R2 secret key |
-| `R2_BUCKET` | No | `chesslens` | R2 bucket name |
+| `R2_BUCKET` | No | `chessgoddess` | R2 bucket name |
 | `R2_ENDPOINT` | No | — | R2 S3-compatible endpoint |
 | `OPENROUTER_API_KEY` | No | — | OpenRouter API key for LLM features |
 | `STOCKFISH_PATH` | No | `stockfish` | Path to Stockfish binary |

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/chessgoddess/chesslens/internal/service"
+	"github.com/chessgoddess/chessgoddess/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

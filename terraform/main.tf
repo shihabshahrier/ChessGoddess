@@ -9,10 +9,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "chesslens-terraform-state"
+    bucket         = "chessgoddess-terraform-state"
     key            = "prod/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "chesslens-terraform-locks"
+    dynamodb_table = "chessgoddess-terraform-locks"
     encrypt        = true
   }
 }
@@ -22,7 +22,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "chesslens"
+      Project     = "chessgoddess"
       Environment = var.environment
       ManagedBy   = "terraform"
     }

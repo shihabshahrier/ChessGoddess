@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chessgoddess/chesslens/internal/engine"
-	"github.com/chessgoddess/chesslens/internal/model"
-	"github.com/chessgoddess/chesslens/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/engine"
+	"github.com/chessgoddess/chessgoddess/internal/model"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
 	"github.com/notnil/chess"
 )
 

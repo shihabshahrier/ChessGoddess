@@ -1,4 +1,4 @@
-// OpenRouter HTTP client for LLM chat completions.
+// OpenRouter HTTP client for LLM chat completions with model fallback.
 package service
 
 import (
@@ -7,14 +7,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
+var defaultChatModels = []string{
+	"google/gemma-4-26b-a4b-it:free",
+	"google/gemma-4-31b-it:free",
+	"meta-llama/llama-3.3-70b-instruct:free",
+	"nvidia/nemotron-3-super-120b-a12b:free",
+	"deepseek/deepseek-v4-flash:free",
+	"qwen/qwen3-next-80b-a3b-instruct:free",
+}
+
 type OpenRouterClient struct {
 	apiKey     string
 	baseURL    string
-	model      string
+	models     []string
 	httpClient *http.Client
 }
 
@@ -50,22 +60,23 @@ type ChatResponse struct {
 }
 
 func NewOpenRouterClient(apiKey string, model string) *OpenRouterClient {
-	if model == "" {
-		model = "openai/gpt-4o-mini"
+	models := defaultChatModels
+	if model != "" {
+		models = append([]string{model}, defaultChatModels...)
 	}
 	return &OpenRouterClient{
 		apiKey:  apiKey,
 		baseURL: "https://openrouter.ai/api/v1",
-		model:   model,
+		models:  models,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
 }
 
-func (c *OpenRouterClient) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
+func (c *OpenRouterClient) chatWithModel(ctx context.Context, model string, messages []ChatMessage) (string, int, error) {
 	req := ChatRequest{
-		Model:       c.model,
+		Model:       model,
 		Messages:    messages,
 		MaxTokens:   1000,
 		Temperature: 0.7,
@@ -73,42 +84,64 @@ func (c *OpenRouterClient) Chat(ctx context.Context, messages []ChatMessage) (st
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", 0, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	httpReq.Header.Set("HTTP-Referer", "https://chesslens.app")
-	httpReq.Header.Set("X-Title", "ChessLens")
+	httpReq.Header.Set("HTTP-Referer", "https://chessgoddess.app")
+	httpReq.Header.Set("X-Title", "ChessGoddess")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
+		return "", 0, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// Read body but limit to avoid logging huge responses
-		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return "", fmt.Errorf("API error %d", resp.StatusCode)
-		_ = bodyBytes // logged internally if needed
+		io.Copy(io.Discard, resp.Body)
+		return "", resp.StatusCode, fmt.Errorf("API error %d", resp.StatusCode)
 	}
 
 	var chatResp ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return "", 0, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return "", 0, fmt.Errorf("no choices in response")
 	}
 
-	return chatResp.Choices[0].Message.Content, nil
+	return chatResp.Choices[0].Message.Content, http.StatusOK, nil
+}
+
+func (c *OpenRouterClient) PrimaryModel() string {
+	return c.models[0]
+}
+
+func (c *OpenRouterClient) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
+	for i, model := range c.models {
+		result, statusCode, err := c.chatWithModel(ctx, model, messages)
+		if err == nil {
+			if i > 0 {
+				slog.Info("openrouter fallback succeeded", "model", model, "attempt", i+1)
+			}
+			return result, nil
+		}
+
+		if statusCode == http.StatusTooManyRequests || statusCode >= 500 {
+			slog.Warn("openrouter model unavailable, trying next", "model", model, "status", statusCode)
+			continue
+		}
+
+		return "", err
+	}
+	return "", fmt.Errorf("all %d models exhausted", len(c.models))
 }
 
 func (c *OpenRouterClient) ExplainMove(fen, move, classification string, eval float64) (string, error) {

@@ -8,7 +8,7 @@ Base URL: `/api/v1`
 ```
 GET /health
 ```
-Returns `200 OK` with `{"status": "ok", "service": "chesslens"}`.
+Returns `200 OK` with `{"status": "ok", "service": "chessgoddess"}`.
 
 ### Readiness Check
 ```

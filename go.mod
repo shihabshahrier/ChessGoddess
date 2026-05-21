@@ -1,4 +1,4 @@
-module github.com/chessgoddess/chesslens
+module github.com/chessgoddess/chessgoddess
 
 go 1.25.0
 

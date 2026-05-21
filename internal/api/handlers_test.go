@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/chessgoddess/chesslens/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/config"
 	"github.com/gin-gonic/gin"
 )
 

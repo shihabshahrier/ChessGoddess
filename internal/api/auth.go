@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/chessgoddess/chesslens/internal/auth"
-	"github.com/chessgoddess/chesslens/internal/config"
-	"github.com/chessgoddess/chesslens/internal/model"
-	"github.com/chessgoddess/chesslens/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/auth"
+	"github.com/chessgoddess/chessgoddess/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/model"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )

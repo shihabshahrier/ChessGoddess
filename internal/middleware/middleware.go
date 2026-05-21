@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/auth"
+	"github.com/chessgoddess/chessgoddess/internal/auth"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )

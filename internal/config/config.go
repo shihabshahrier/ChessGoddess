@@ -33,14 +33,14 @@ type Config struct {
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/chesslens?sslmode=disable"),
+		DatabaseURL:    getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/chessgoddess?sslmode=disable"),
 		RedisURL:       getEnv("REDIS_URL", "redis://localhost:6379"),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleSecret:   getEnv("GOOGLE_CLIENT_SECRET", ""),
 		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		R2AccessKey:    getEnv("R2_ACCESS_KEY", ""),
 		R2SecretKey:    getEnv("R2_SECRET_KEY", ""),
-		R2Bucket:       getEnv("R2_BUCKET", "chesslens"),
+		R2Bucket:       getEnv("R2_BUCKET", "chessgoddess"),
 		R2Endpoint:     getEnv("R2_ENDPOINT", ""),
 		OpenRouterKey:  getEnv("OPENROUTER_API_KEY", ""),
 		StockfishPath:  getEnv("STOCKFISH_PATH", "stockfish"),

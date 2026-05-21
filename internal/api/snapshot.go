@@ -5,7 +5,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/chessgoddess/chesslens/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 

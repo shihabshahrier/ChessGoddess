@@ -38,7 +38,7 @@ And yes, Stockfish still lives underneath everything like a slightly annoyed gen
 
 # 🏗️ High-Level Architecture (updated for ChessLens)
 
-```txt id="chesslens_arch"
+```txt id="chessgoddess_arch"
 Frontend (React)
    ↓
 Gin API (ChessLens Core API)

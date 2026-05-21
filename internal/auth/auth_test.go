@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chessgoddess/chesslens/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/config"
 )
 
 func TestGenerateJWT(t *testing.T) {

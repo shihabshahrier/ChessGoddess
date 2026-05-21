@@ -10,13 +10,13 @@ variable "environment" {
 
 variable "project_name" {
   type    = string
-  default = "chesslens"
+  default = "chessgoddess"
 }
 
 # Database
 variable "db_name" {
   type    = string
-  default = "chesslens"
+  default = "chessgoddess"
 }
 
 variable "db_username" {

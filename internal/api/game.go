@@ -5,11 +5,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/chessgoddess/chesslens/internal/game"
-	"github.com/chessgoddess/chesslens/internal/model"
-	"github.com/chessgoddess/chesslens/internal/repository"
-	"github.com/chessgoddess/chesslens/internal/service"
-	"github.com/chessgoddess/chesslens/internal/worker"
+	"github.com/chessgoddess/chessgoddess/internal/game"
+	"github.com/chessgoddess/chessgoddess/internal/model"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/service"
+	"github.com/chessgoddess/chessgoddess/internal/worker"
 	"github.com/gin-gonic/gin"
 )
 

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/chessgoddess/chesslens/internal/repository"
-	"github.com/chessgoddess/chesslens/internal/service"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/service"
 )
 
 type Worker struct {

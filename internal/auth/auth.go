@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -66,7 +66,7 @@ func (s *Service) GenerateJWT(userID, email, name, avatarURL string) (string, er
 			Subject:   userID,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "chesslens",
+			Issuer:    "chessgoddess",
 		},
 	}
 

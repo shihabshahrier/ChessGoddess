@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew install *)",
+      "Bash(./scripts/stop.sh)",
+      "Bash(./scripts/start.sh)",
+      "Bash(go test *)",
+      "Bash(npx tsc *)",
+      "Bash(go vet *)",
+      "Bash(npm run *)",
+      "Bash(terraform init *)"
+    ]
+  }
+}

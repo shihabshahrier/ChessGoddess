@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

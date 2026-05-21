@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/chessgoddess/chesslens/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -65,7 +65,7 @@ func (s *AIService) ExplainMove(ctx context.Context, sessionID, moveID, fen, mov
 		return "", err
 	}
 
-	s.repo.Create(ctx, sessionID, moveID, fen, explanation, s.client.model)
+	s.repo.Create(ctx, sessionID, moveID, fen, explanation, s.client.PrimaryModel())
 	s.setCache(fen, move, "explain", explanation)
 
 	return explanation, nil
@@ -81,7 +81,7 @@ func (s *AIService) ExplainBlunder(ctx context.Context, sessionID, moveID, fen, 
 		return "", err
 	}
 
-	s.repo.Create(ctx, sessionID, moveID, fen, explanation, s.client.model)
+	s.repo.Create(ctx, sessionID, moveID, fen, explanation, s.client.PrimaryModel())
 	s.setCache(fen, move, "blunder", explanation)
 
 	return explanation, nil
@@ -97,7 +97,7 @@ func (s *AIService) SummarizeGame(ctx context.Context, sessionID, opening, resul
 		return "", err
 	}
 
-	s.repo.Create(ctx, sessionID, "", opening, summary, s.client.model)
+	s.repo.Create(ctx, sessionID, "", opening, summary, s.client.PrimaryModel())
 	s.setCache(opening, result, "summary", summary)
 
 	return summary, nil

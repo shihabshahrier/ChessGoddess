@@ -147,22 +147,22 @@ jobs:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/chesslens:$IMAGE_TAG -t $ECR_REGISTRY/chesslens:latest .
-          docker push $ECR_REGISTRY/chesslens:$IMAGE_TAG
-          docker push $ECR_REGISTRY/chesslens:latest
+          docker build -t $ECR_REGISTRY/chessgoddess:$IMAGE_TAG -t $ECR_REGISTRY/chessgoddess:latest .
+          docker push $ECR_REGISTRY/chessgoddess:$IMAGE_TAG
+          docker push $ECR_REGISTRY/chessgoddess:latest
 
       - name: Deploy API service
         run: |
           aws ecs update-service \
-            --cluster chesslens \
-            --service chesslens-api \
+            --cluster chessgoddess \
+            --service chessgoddess-api \
             --force-new-deployment \
             --no-cli-pager
 
       - name: Deploy Worker service
         run: |
           aws ecs update-service \
-            --cluster chesslens \
-            --service chesslens-worker \
+            --cluster chessgoddess \
+            --service chessgoddess-worker \
             --force-new-deployment \
             --no-cli-pager

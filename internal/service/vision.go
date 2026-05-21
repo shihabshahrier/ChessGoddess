@@ -1,4 +1,4 @@
-// Vision service — converts chess board images to FEN strings using OpenRouter gpt-4o.
+// Vision service — converts chess board images to FEN strings via OpenRouter with fallback.
 package service
 
 import (
@@ -8,14 +8,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
+var defaultVisionModels = []string{
+	"google/gemma-4-31b-it:free",
+	"google/gemma-4-26b-a4b-it:free",
+	"nvidia/nemotron-nano-12b-v2-vl:free",
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+}
+
 type VisionClient struct {
 	apiKey     string
 	baseURL    string
-	model      string
+	models     []string
 	httpClient *http.Client
 }
 
@@ -39,20 +47,21 @@ type VisionResponse struct {
 }
 
 func NewVisionClient(apiKey string, model string) *VisionClient {
-	if model == "" {
-		model = "openai/gpt-4o"
+	models := defaultVisionModels
+	if model != "" {
+		models = append([]string{model}, defaultVisionModels...)
 	}
 	return &VisionClient{
 		apiKey:  apiKey,
 		baseURL: "https://openrouter.ai/api/v1",
-		model:   model,
+		models:  models,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
 	}
 }
 
-func (c *VisionClient) ImageToFEN(ctx context.Context, imageData []byte) (string, error) {
+func (c *VisionClient) imageToFENWithModel(ctx context.Context, model string, imageData []byte) (string, int, error) {
 	base64Image := base64.StdEncoding.EncodeToString(imageData)
 
 	messages := []VisionMessage{
@@ -83,47 +92,67 @@ func (c *VisionClient) ImageToFEN(ctx context.Context, imageData []byte) (string
 	}
 
 	req := VisionRequest{
-		Model:     c.model,
+		Model:     model,
 		Messages:  messages,
 		MaxTokens: 100,
 	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", 0, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	httpReq.Header.Set("HTTP-Referer", "https://chesslens.app")
-	httpReq.Header.Set("X-Title", "ChessLens")
+	httpReq.Header.Set("HTTP-Referer", "https://chessgoddess.app")
+	httpReq.Header.Set("X-Title", "ChessGoddess")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
+		return "", 0, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		io.Copy(io.Discard, resp.Body)
-		return "", fmt.Errorf("API error %d", resp.StatusCode)
+		return "", resp.StatusCode, fmt.Errorf("API error %d", resp.StatusCode)
 	}
 
 	var visionResp VisionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&visionResp); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return "", 0, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(visionResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return "", 0, fmt.Errorf("no choices in response")
 	}
 
-	return extractFEN(visionResp.Choices[0].Message.Content), nil
+	return extractFEN(visionResp.Choices[0].Message.Content), http.StatusOK, nil
+}
+
+func (c *VisionClient) ImageToFEN(ctx context.Context, imageData []byte) (string, error) {
+	for i, model := range c.models {
+		result, statusCode, err := c.imageToFENWithModel(ctx, model, imageData)
+		if err == nil {
+			if i > 0 {
+				slog.Info("vision fallback succeeded", "model", model, "attempt", i+1)
+			}
+			return result, nil
+		}
+
+		if statusCode == http.StatusTooManyRequests || statusCode >= 500 {
+			slog.Warn("vision model unavailable, trying next", "model", model, "status", statusCode)
+			continue
+		}
+
+		return "", err
+	}
+	return "", fmt.Errorf("all %d vision models exhausted", len(c.models))
 }
 
 func extractFEN(response string) string {

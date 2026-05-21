@@ -5,13 +5,13 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/chessgoddess/chesslens/internal/auth"
-	"github.com/chessgoddess/chesslens/internal/config"
-	"github.com/chessgoddess/chesslens/internal/db"
-	"github.com/chessgoddess/chesslens/internal/middleware"
-	"github.com/chessgoddess/chesslens/internal/repository"
-	"github.com/chessgoddess/chesslens/internal/service"
-	"github.com/chessgoddess/chesslens/internal/worker"
+	"github.com/chessgoddess/chessgoddess/internal/auth"
+	"github.com/chessgoddess/chessgoddess/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/db"
+	"github.com/chessgoddess/chessgoddess/internal/middleware"
+	"github.com/chessgoddess/chessgoddess/internal/repository"
+	"github.com/chessgoddess/chessgoddess/internal/service"
+	"github.com/chessgoddess/chessgoddess/internal/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
@@ -168,7 +168,7 @@ func (s *Server) Stop() {
 }
 
 func healthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "chesslens"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "chessgoddess"})
 }
 
 func readyHandler(database *db.DB, redisClient *redis.Client) gin.HandlerFunc {

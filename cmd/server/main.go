@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chessgoddess/chesslens/internal/api"
-	"github.com/chessgoddess/chesslens/internal/auth"
-	"github.com/chessgoddess/chesslens/internal/config"
-	"github.com/chessgoddess/chesslens/internal/db"
+	"github.com/chessgoddess/chessgoddess/internal/api"
+	"github.com/chessgoddess/chessgoddess/internal/auth"
+	"github.com/chessgoddess/chessgoddess/internal/config"
+	"github.com/chessgoddess/chessgoddess/internal/db"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func main() {
 		}
 
 		go func() {
-			slog.Info("chesslens server starting", "port", cfg.Port, "env", cfg.Environment)
+			slog.Info("chessgoddess server starting", "port", cfg.Port, "env", cfg.Environment)
 			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				slog.Error("server error", "error", err)
 				os.Exit(1)

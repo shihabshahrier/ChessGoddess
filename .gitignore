@@ -34,6 +34,11 @@ Thumbs.db
 # Docker
 *.pid
 
+# Dev server
+.dev.pids
+.dev-backend.log
+.dev-frontend.log
+
 # Frontend
 frontend/node_modules/
 frontend/dist/

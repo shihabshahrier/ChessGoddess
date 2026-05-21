@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/chessgoddess/chesslens/internal/model"
+	"github.com/chessgoddess/chessgoddess/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
