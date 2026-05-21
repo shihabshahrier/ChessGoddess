@@ -40,36 +40,47 @@ func main() {
 
 	srv := api.New(cfg, database, authService)
 
-	httpServer := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      srv.Handler(),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	var httpServer *http.Server
+	if cfg.HTTPEnabled {
+		httpServer = &http.Server{
+			Addr:         ":" + cfg.Port,
+			Handler:      srv.Handler(),
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+
+		go func() {
+			slog.Info("chesslens server starting", "port", cfg.Port, "env", cfg.Environment)
+			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("server error", "error", err)
+				os.Exit(1)
+			}
+		}()
 	}
 
-	// Start server in background goroutine.
-	go func() {
-		slog.Info("chesslens server starting", "port", cfg.Port, "env", cfg.Environment)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server error", "error", err)
-			os.Exit(1)
-		}
-	}()
+	if !cfg.HTTPEnabled && !cfg.WorkerEnabled {
+		slog.Error("both HTTP and worker disabled, nothing to do")
+		os.Exit(1)
+	}
 
-	// Block until OS signal received.
+	if !cfg.HTTPEnabled {
+		slog.Info("running in worker-only mode")
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	slog.Info("shutting down gracefully...")
 
-	// Give in-flight requests 30s to complete.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		slog.Error("forced shutdown", "error", err)
+	if httpServer != nil {
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("forced shutdown", "error", err)
+		}
 	}
 
 	srv.Stop()

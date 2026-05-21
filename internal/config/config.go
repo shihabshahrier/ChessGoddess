@@ -19,9 +19,16 @@ type Config struct {
 	R2Bucket       string
 	R2Endpoint     string
 	OpenRouterKey  string
-	StockfishPath  string
-	Port           string
-	Environment    string
+	StockfishPath    string
+	Port             string
+	Environment      string
+	FrontendURL      string
+	QueueProvider    string
+	SQSAnalysisURL   string
+	SQSSnapshotURL   string
+	SQSAIExplainURL  string
+	WorkerEnabled    bool
+	HTTPEnabled      bool
 }
 
 func Load() (*Config, error) {
@@ -39,7 +46,14 @@ func Load() (*Config, error) {
 		StockfishPath:  getEnv("STOCKFISH_PATH", "stockfish"),
 		Port:           getEnv("PORT", "8080"),
 		Environment:    getEnv("ENVIRONMENT", "development"),
-		AllowedOrigins: parseOrigins(getEnv("ALLOWED_ORIGINS", "http://localhost:3000")),
+		AllowedOrigins:  parseOrigins(getEnv("ALLOWED_ORIGINS", "http://localhost:3000")),
+		FrontendURL:     getEnv("FRONTEND_URL", "http://localhost:3000"),
+		QueueProvider:   getEnv("QUEUE_PROVIDER", "redis"),
+		SQSAnalysisURL:  getEnv("SQS_ANALYSIS_URL", ""),
+		SQSSnapshotURL:  getEnv("SQS_SNAPSHOT_URL", ""),
+		SQSAIExplainURL: getEnv("SQS_AI_EXPLAIN_URL", ""),
+		WorkerEnabled:   getEnv("WORKER_ENABLED", "true") == "true",
+		HTTPEnabled:     getEnv("HTTP_ENABLED", "true") == "true",
 	}
 
 	return cfg, cfg.Validate()

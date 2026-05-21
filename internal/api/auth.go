@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/chessgoddess/chesslens/internal/auth"
+	"github.com/chessgoddess/chesslens/internal/config"
 	"github.com/chessgoddess/chesslens/internal/model"
 	"github.com/chessgoddess/chesslens/internal/repository"
 	"github.com/gin-gonic/gin"
@@ -18,10 +19,11 @@ import (
 type AuthHandlers struct {
 	service  *auth.Service
 	userRepo *repository.UserRepository
+	config   *config.Config
 }
 
-func NewAuthHandlers(service *auth.Service, userRepo *repository.UserRepository) *AuthHandlers {
-	return &AuthHandlers{service: service, userRepo: userRepo}
+func NewAuthHandlers(service *auth.Service, userRepo *repository.UserRepository, cfg *config.Config) *AuthHandlers {
+	return &AuthHandlers{service: service, userRepo: userRepo, config: cfg}
 }
 
 func (h *AuthHandlers) GetGoogleAuthURL(c *gin.Context) {
@@ -31,8 +33,16 @@ func (h *AuthHandlers) GetGoogleAuthURL(c *gin.Context) {
 		return
 	}
 
-	secure := c.Request.TLS != nil
-	c.SetCookie("oauth_state", state, 3600, "/", "", secure, true)
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		MaxAge:   3600,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
 	c.JSON(http.StatusOK, gin.H{"url": h.service.GetAuthURL(state)})
 }
 
@@ -43,7 +53,14 @@ func (h *AuthHandlers) GoogleCallback(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid oauth state"})
 		return
 	}
-	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	code := c.Query("code")
 	if code == "" {
@@ -68,6 +85,12 @@ func (h *AuthHandlers) GoogleCallback(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("google userinfo returned non-200", "status", resp.StatusCode)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user info"})
+		return
+	}
+
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read user info"})
@@ -82,6 +105,11 @@ func (h *AuthHandlers) GoogleCallback(c *gin.Context) {
 	}
 	if err := json.Unmarshal(body, &googleUser); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse user info"})
+		return
+	}
+
+	if googleUser.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "google account has no email"})
 		return
 	}
 
@@ -114,5 +142,5 @@ func (h *AuthHandlers) GoogleCallback(c *gin.Context) {
 	}
 
 	h.service.SetAuthCookie(c.Writer, jwtToken)
-	c.Redirect(http.StatusFound, "/dashboard")
+	c.Redirect(http.StatusFound, h.config.FrontendURL+"/dashboard")
 }

@@ -16,12 +16,12 @@
 │  internal/service/ → analysis, AI, vision           │
 │  internal/engine/  → Stockfish process mgmt         │
 │  internal/repository/ → DB access layer             │
-│  internal/worker/  → Redis job queue + workers      │
+│  internal/worker/  → Job queue + background workers │
 │  internal/storage/ → Cloudflare R2                  │
-└──────┬──────────────┬───────────────┬───────────────┘
-       │              │               │
-  PostgreSQL        Redis       Cloudflare R2
-  (data store)   (queue/cache)  (file storage)
+└──────┬──────────────┬──────────┬────────────────────┘
+       │              │          │
+  PostgreSQL        Redis      SQS (prod)
+  Aurora (AWS)   ElastiCache   3 queues + DLQs
        │
   Stockfish      OpenRouter
   (local bin)    (LLM API)
@@ -58,7 +58,11 @@ Stockfish process management. Spawns stockfish binary, communicates via UCI prot
 Data access layer. One struct per domain entity, takes `pgxpool.Pool`. No business logic — pure CRUD + queries.
 
 ### `internal/worker/`
-Background job processing. Redis-backed queue (`worker.Queue`) with `Enqueue`/`Dequeue` for analysis and snapshot jobs. `worker.Worker` runs N goroutines polling the queue, dispatching to `AnalysisService`.
+Background job processing. `JobQueue` interface with two implementations:
+- **RedisQueue** — Redis LPUSH/BRPOP (local dev, 5s timeout)
+- **SQSQueue** — AWS SQS with 20s long polling (production)
+
+`Worker` runs N goroutines polling all job types (analysis, snapshot, AI). Selected via `QUEUE_PROVIDER` env var. API and worker can run as separate ECS tasks via `HTTP_ENABLED`/`WORKER_ENABLED` flags.
 
 ### `internal/db/`
 PostgreSQL connection pool wrapper. `db.New()` creates pool from config, `db.Ping()` for health checks.
@@ -76,7 +80,7 @@ Cloudflare R2 (S3-compatible) client for file uploads.
 
 ```
 Upload PGN → Parse → Create Game row → Create AnalysisSession (pending)
-    → Enqueue Redis job
+    → Enqueue job (Redis local / SQS prod)
     → Worker picks up job
     → Load Game PGN from DB
     → For each move:
@@ -128,7 +132,25 @@ users
 
 ## Deployment
 
-- **Local**: `docker-compose.yml` — Go backend, React frontend, PostgreSQL, Redis
-- **Production**: `docker-compose.prod.yml` — multi-stage builds, nginx for frontend
-- **CI**: GitHub Actions — Go test/lint/build, frontend typecheck/lint/build, Docker image build
-- **Deploy target**: Cloud Run, ECS, or Fly.io (not yet configured — see AGENT.md D6)
+### Local
+`docker-compose.yml` — Go backend, React frontend, PostgreSQL, Redis. Queue via Redis LPUSH/BRPOP.
+
+### AWS Production (~$90/mo)
+Managed via Terraform (`terraform/`):
+
+| Component | AWS Service | Config |
+|-----------|-------------|--------|
+| Compute (API) | ECS Fargate | 0.25 vCPU, 512MB, on-demand |
+| Compute (Worker) | ECS Fargate Spot | 0.5 vCPU, 1GB, 70% cheaper |
+| Database | Aurora Serverless v2 | PostgreSQL 16, 0.5-16 ACU |
+| Cache | ElastiCache Serverless | Redis, 1GB max |
+| Queue | SQS | 3 queues + 3 DLQs, long polling |
+| Load Balancer | ALB | Health check on `/health` |
+| Container Registry | ECR | 10 image retention |
+| Secrets | Secrets Manager | JWT, OAuth, API keys |
+| Frontend | Cloudflare Pages | Manual deploy |
+
+**Network**: VPC with 2 public subnets (ECS + ALB) + 2 private subnets (Aurora + ElastiCache). No NAT Gateway — Fargate tasks get public IPs.
+
+### CI/CD
+GitHub Actions: test + lint → ECR push → ECS force-new-deployment (API + Worker). Frontend deployed manually to Cloudflare Pages.

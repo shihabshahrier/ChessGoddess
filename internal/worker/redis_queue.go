@@ -1,4 +1,4 @@
-// Queue implements a Redis-backed job queue for background processing.
+// RedisQueue implements JobQueue using Redis LPUSH/BRPOP. Used for local dev.
 package worker
 
 import (
@@ -26,12 +26,14 @@ type Job struct {
 	CreatedAt int64                  `json:"created_at"`
 }
 
-type Queue struct {
+var _ JobQueue = (*RedisQueue)(nil)
+
+type RedisQueue struct {
 	client *redis.Client
 	ctx    context.Context
 }
 
-func NewQueue(redisURL string) (*Queue, error) {
+func NewRedisQueue(redisURL string) (*RedisQueue, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse redis URL: %w", err)
@@ -44,13 +46,13 @@ func NewQueue(redisURL string) (*Queue, error) {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
-	return &Queue{
+	return &RedisQueue{
 		client: client,
 		ctx:    ctx,
 	}, nil
 }
 
-func (q *Queue) Enqueue(job *Job) error {
+func (q *RedisQueue) Enqueue(job *Job) error {
 	data, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal job: %w", err)
@@ -64,10 +66,10 @@ func (q *Queue) Enqueue(job *Job) error {
 	return nil
 }
 
-func (q *Queue) Dequeue(jobType JobType) (*Job, error) {
+func (q *RedisQueue) Dequeue(jobType JobType) (*Job, error) {
 	queueKey := fmt.Sprintf("queue:%s", jobType)
 
-	results, err := q.client.BRPop(q.ctx, 0, queueKey).Result()
+	results, err := q.client.BRPop(q.ctx, 5*time.Second, queueKey).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to dequeue job: %w", err)
 	}
@@ -84,7 +86,7 @@ func (q *Queue) Dequeue(jobType JobType) (*Job, error) {
 	return &job, nil
 }
 
-func (q *Queue) EnqueueAnalysis(sessionID, gameID string, depth int) error {
+func (q *RedisQueue) EnqueueAnalysis(sessionID, gameID string, depth int) error {
 	job := &Job{
 		Type: JobTypeAnalysis,
 		Payload: map[string]interface{}{
@@ -98,7 +100,7 @@ func (q *Queue) EnqueueAnalysis(sessionID, gameID string, depth int) error {
 	return q.Enqueue(job)
 }
 
-func (q *Queue) EnqueueSnapshot(sessionID, userID string) error {
+func (q *RedisQueue) EnqueueSnapshot(sessionID, userID string) error {
 	job := &Job{
 		Type: JobTypeSnapshot,
 		Payload: map[string]interface{}{
@@ -111,15 +113,15 @@ func (q *Queue) EnqueueSnapshot(sessionID, userID string) error {
 	return q.Enqueue(job)
 }
 
-func (q *Queue) GetQueueLength(jobType JobType) (int64, error) {
+func (q *RedisQueue) GetQueueLength(jobType JobType) (int64, error) {
 	queueKey := fmt.Sprintf("queue:%s", jobType)
 	return q.client.LLen(q.ctx, queueKey).Result()
 }
 
-func (q *Queue) Ping(ctx context.Context) error {
+func (q *RedisQueue) Ping(ctx context.Context) error {
 	return q.client.Ping(ctx).Err()
 }
 
-func (q *Queue) Close() error {
+func (q *RedisQueue) Close() error {
 	return q.client.Close()
 }

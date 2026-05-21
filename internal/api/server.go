@@ -21,7 +21,7 @@ type Server struct {
 	config      *config.Config
 	database    *db.DB
 	auth        *auth.Service
-	queue       *worker.Queue
+	queue       worker.JobQueue
 	bgWorker    *worker.Worker
 	aiSvc       *service.AIService
 	redisClient *redis.Client
@@ -63,14 +63,27 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 		aiService = service.NewAIService(cfg.OpenRouterKey, "", redisClient, aiRepo)
 	}
 
-	// Queue + background worker
-	q, err := worker.NewQueue(cfg.RedisURL)
-	if err != nil {
-		slog.Warn("redis queue unavailable", "error", err)
+	// Queue — SQS in production, Redis locally
+	var q worker.JobQueue
+	switch cfg.QueueProvider {
+	case "sqs":
+		q, err = worker.NewSQSQueue(cfg.SQSAnalysisURL, cfg.SQSSnapshotURL, cfg.SQSAIExplainURL)
+		if err != nil {
+			slog.Warn("sqs queue unavailable", "error", err)
+		}
+	default:
+		q, err = worker.NewRedisQueue(cfg.RedisURL)
+		if err != nil {
+			slog.Warn("redis queue unavailable", "error", err)
+		}
 	}
 
-	bgWorker := worker.New("main", q, analysisSvc, sessionRepo, gameRepo, snapshotRepo, 2)
-	bgWorker.Start()
+	// Background worker
+	var bgWorker *worker.Worker
+	if cfg.WorkerEnabled {
+		bgWorker = worker.New("main", q, analysisSvc, sessionRepo, gameRepo, snapshotRepo, 2)
+		bgWorker.Start()
+	}
 
 	// Vision client
 	var visionClient *service.VisionClient
@@ -79,7 +92,7 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 	}
 
 	// Handlers
-	authHandlers := NewAuthHandlers(authService, userRepo)
+	authHandlers := NewAuthHandlers(authService, userRepo, cfg)
 	gameHandlers := NewGameHandlers(gameRepo, sessionRepo, analysisSvc, q)
 	snapshotHandlers := NewSnapshotHandlers(snapshotRepo)
 	aiHandlers := NewAIHandlers(aiService, moveRepo)
@@ -125,8 +138,6 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 			}
 		}
 	}
-
-	_ = userRepo // used by authHandlers
 
 	return &Server{
 		router:      r,

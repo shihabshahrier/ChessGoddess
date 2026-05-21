@@ -17,14 +17,14 @@ type GameHandlers struct {
 	gameRepo        *repository.GameRepository
 	sessionRepo     *repository.AnalysisSessionRepository
 	analysisService *service.AnalysisService
-	queue           *worker.Queue
+	queue           worker.JobQueue
 }
 
 func NewGameHandlers(
 	gameRepo *repository.GameRepository,
 	sessionRepo *repository.AnalysisSessionRepository,
 	analysisSvc *service.AnalysisService,
-	q *worker.Queue,
+	q worker.JobQueue,
 ) *GameHandlers {
 	return &GameHandlers{
 		gameRepo:        gameRepo,

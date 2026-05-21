@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/chessgoddess/chesslens/internal/config"
 	"github.com/golang-jwt/jwt/v5"
@@ -62,7 +63,10 @@ func (s *Service) GenerateJWT(userID, email, name, avatarURL string) (string, er
 		Name:      name,
 		AvatarURL: avatarURL,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: userID,
+			Subject:   userID,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "chesslens",
 		},
 	}
 

@@ -12,7 +12,7 @@ import (
 
 type Worker struct {
 	id           string
-	queue        *Queue
+	queue        JobQueue
 	analysisSvc  *service.AnalysisService
 	sessionRepo  *repository.AnalysisSessionRepository
 	gameRepo     *repository.GameRepository
@@ -24,7 +24,7 @@ type Worker struct {
 
 func New(
 	id string,
-	q *Queue,
+	q JobQueue,
 	analysisSvc *service.AnalysisService,
 	sessionRepo *repository.AnalysisSessionRepository,
 	gameRepo *repository.GameRepository,
@@ -61,6 +61,8 @@ func (w *Worker) Stop() {
 func (w *Worker) processLoop(workerID int) {
 	defer w.wg.Done()
 
+	jobTypes := []JobType{JobTypeAnalysis, JobTypeSnapshot, JobTypeAI}
+
 	for {
 		select {
 		case <-w.stopCh:
@@ -69,17 +71,20 @@ func (w *Worker) processLoop(workerID int) {
 			if w.queue == nil {
 				return
 			}
-			job, err := w.queue.Dequeue(JobTypeAnalysis)
-			if err != nil {
-				continue
-			}
 
-			slog.Info("processing job", "worker", w.id, "worker_id", workerID, "job", job.ID)
+			for _, jt := range jobTypes {
+				job, err := w.queue.Dequeue(jt)
+				if err != nil {
+					continue
+				}
 
-			if err := w.handleJob(job); err != nil {
-				slog.Error("job failed", "worker", w.id, "job", job.ID, "error", err)
-			} else {
-				slog.Info("job completed", "worker", w.id, "job", job.ID)
+				slog.Info("processing job", "worker", w.id, "worker_id", workerID, "type", jt, "job", job.ID)
+
+				if err := w.handleJob(job); err != nil {
+					slog.Error("job failed", "worker", w.id, "job", job.ID, "error", err)
+				} else {
+					slog.Info("job completed", "worker", w.id, "job", job.ID)
+				}
 			}
 		}
 	}

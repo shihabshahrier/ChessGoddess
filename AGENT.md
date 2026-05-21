@@ -22,12 +22,12 @@
 │  internal/service/ → analysis, AI, vision, snapshot │
 │  internal/engine/  → Stockfish process mgmt         │
 │  internal/repository/ → DB access layer             │
-│  internal/worker/  → Redis job queue + workers      │
+│  internal/worker/  → Job queue + background workers │
 │  internal/storage/ → Cloudflare R2                  │
-└──────┬──────────────┬───────────────┬───────────────┘
-       │              │               │
-  PostgreSQL        Redis       Cloudflare R2
-  (data store)   (queue/cache)  (file storage)
+└──────┬──────────────┬──────────┬────────────────────┘
+       │              │          │
+  PostgreSQL        Redis      SQS (prod)
+  Aurora (AWS)   ElastiCache   3 queues + DLQs
        │
   Stockfish      OpenRouter
   (local bin)    (LLM API via openrouter.ai)
@@ -40,15 +40,16 @@
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, Framer Motion, Chess.js |
-| Backend | Go 1.23, Gin, pgx v5, go-redis v9, golang-jwt v5 |
-| Database | PostgreSQL 16 |
-| Cache/Queue | Redis 7 |
+| Backend | Go 1.25, Gin, pgx v5, go-redis v9, golang-jwt v5, aws-sdk-go-v2 |
+| Database | PostgreSQL 16 (Aurora Serverless v2 on AWS) |
+| Cache | Redis 7 (ElastiCache Serverless on AWS) |
+| Queue | Redis LPUSH/BRPOP (local), AWS SQS (production) |
 | Storage | Cloudflare R2 (AWS S3-compatible) |
-| Auth | Google OAuth2 + HS256 JWT |
-| Engine | Stockfish (local binary) |
+| Auth | Google OAuth2 + HS256 JWT (7-day expiry) |
+| Engine | Stockfish (local binary, alpine pkg in Docker) |
 | AI | OpenRouter API (gpt-4o-mini default, gpt-4o for vision) |
-| Infra | Docker Compose (local), GitHub Actions CI/CD |
-| Deploy | Cloud Run / ECS (backend), Cloudflare Pages (frontend) |
+| Infra | Docker Compose (local), Terraform + ECS Fargate (AWS), GitHub Actions CI/CD |
+| Deploy | ECS Fargate (backend API + worker), Cloudflare Pages (frontend, manual) |
 
 ---
 
@@ -98,9 +99,11 @@ ChessGoddess/
 │   │   └── vision.go                # Image-to-FEN
 │   ├── storage/                     # Cloudflare R2
 │   │   └── r2.go
-│   └── worker/                      # Background jobs (merged queue/ into here)
-│       ├── worker.go
-│       └── queue.go
+│   └── worker/                      # Background jobs (Redis local / SQS prod)
+│       ├── worker.go                # Process loop (analysis, snapshot, AI jobs)
+│       ├── queue_interface.go       # JobQueue interface
+│       ├── redis_queue.go           # Redis LPUSH/BRPOP (local dev)
+│       └── sqs_queue.go             # AWS SQS (production)
 ├── migrations/
 │   └── 001_initial_schema.sql
 ├── scripts/
@@ -135,9 +138,24 @@ ChessGoddess/
 │   └── tests/
 │       ├── e2e/                     # Playwright E2E
 │       └── unit/                    # Vitest unit tests
+├── terraform/                       # AWS infrastructure (ECS, Aurora, SQS, etc.)
+│   ├── main.tf                      # Provider, S3 backend
+│   ├── variables.tf                 # All inputs
+│   ├── outputs.tf                   # ALB DNS, ECR URL, queue URLs
+│   ├── vpc.tf                       # VPC, 2 public + 2 private subnets (no NAT)
+│   ├── ecr.tf                       # Container registry
+│   ├── rds.tf                       # Aurora Serverless v2 PostgreSQL
+│   ├── elasticache.tf               # ElastiCache Serverless Redis
+│   ├── sqs.tf                       # 3 queues + 3 DLQs
+│   ├── alb.tf                       # Application Load Balancer
+│   ├── ecs.tf                       # Cluster, API + Worker services
+│   ├── secrets.tf                   # Secrets Manager
+│   ├── iam.tf                       # Execution + task roles
+│   └── terraform.tfvars.example
 ├── .github/
 │   └── workflows/
-│       └── ci-cd.yml
+│       └── ci-cd.yml                # CI + ECR push + ECS deploy
+├── Dockerfile                       # Production multi-stage (Go + stockfish)
 ├── Makefile                         # make dev, make test, make build, make lint
 ├── docker-compose.yml               # Local dev
 ├── docker-compose.prod.yml          # Production
@@ -205,7 +223,7 @@ ChessGoddess/
 | D3 | Fix `go.mod` version — aligned go.mod and CI to `1.25` | ✅ |
 | D4 | Fix CI Go version — CI and go.mod both use `1.25` | ✅ |
 | D5 | Makefile targets: dev, test, build, lint, migrate | ✅ |
-| D6 | Complete CI/CD deploy step (Cloud Run / ECS / Fly) | ⬜ |
+| D6 | Complete CI/CD deploy step (ECR push + ECS deploy) | ✅ |
 | D7 | Remove `go.mongodb.org/mongo-driver` from deps — `go mod tidy` | ✅ |
 
 ### PHASE E — Testing
@@ -221,6 +239,48 @@ ChessGoddess/
 | E6 | Coverage gate in CI — 25% threshold (DB/engine packages need interface refactor for unit tests) | ✅ |
 | E7 | Frontend: add Vitest + unit tests for key components | ⬜ |
 | E8 | Frontend: fix and run Playwright E2E | ⬜ |
+
+### PHASE F — Auth Security Hardening
+> Goal: JWT and OAuth production-safe.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| F1 | JWT expiry — 7-day `ExpiresAt`, `IssuedAt`, `Issuer` claims | ✅ |
+| F2 | Google response validation — check status code before parsing body | ✅ |
+| F3 | Email validation — reject empty email from Google | ✅ |
+| F4 | OAuth cookie `SameSite: Lax` via `http.SetCookie` | ✅ |
+| F5 | Secure flag — detect `X-Forwarded-Proto` for ALB TLS termination | ✅ |
+| F6 | Configurable `FRONTEND_URL` for OAuth redirect | ✅ |
+
+### PHASE G — Queue Abstraction & Worker
+> Goal: Redis locally, SQS in production. Worker processes all job types.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| G1 | `JobQueue` interface (`queue_interface.go`) | ✅ |
+| G2 | `RedisQueue` — renamed from `Queue`, 5s timeout BRPOP | ✅ |
+| G3 | `SQSQueue` — full AWS SQS implementation with long polling | ✅ |
+| G4 | Queue provider switch in `server.go` (`QUEUE_PROVIDER` env) | ✅ |
+| G5 | API/Worker mode split — `HTTP_ENABLED` + `WORKER_ENABLED` flags | ✅ |
+| G6 | Worker processes all job types (analysis, snapshot, AI) — not just analysis | ✅ |
+
+### PHASE H — AWS Infrastructure (Terraform)
+> Goal: Production AWS deployment, cost-optimized (~$90/mo).
+
+| Task | Description | Status |
+|------|-------------|--------|
+| H1 | VPC — 2 public + 2 private subnets, no NAT Gateway (~$32/mo saved) | ✅ |
+| H2 | ECR — container registry with lifecycle policy (keep 10 images) | ✅ |
+| H3 | Aurora Serverless v2 PostgreSQL — 0.5-16 ACU scaling | ✅ |
+| H4 | ElastiCache Serverless Redis — 1GB max, caching only | ✅ |
+| H5 | SQS — 3 queues (analysis, snapshot, AI) + 3 DLQs, 3 retries | ✅ |
+| H6 | ALB — health check on `/health`, HTTP listener | ✅ |
+| H7 | ECS Fargate — API (on-demand) + Worker (Spot, 70% cheaper) | ✅ |
+| H8 | IAM — execution role (ECR + Secrets) + task role (SQS + CloudWatch) | ✅ |
+| H9 | Secrets Manager — JWT, Google OAuth, OpenRouter, DB password | ✅ |
+| H10 | Production Dockerfile — multi-stage, Go 1.25 + stockfish | ✅ |
+| H11 | CI/CD — ECR push + ECS force-new-deployment on master push | ✅ |
+| H12 | Frontend — Cloudflare Pages (manual deploy) | ✅ |
 
 ---
 
@@ -243,6 +303,13 @@ ChessGoddess/
 | `STOCKFISH_PATH` | No | `stockfish` | Path to Stockfish binary |
 | `PORT` | No | `8080` | HTTP server port |
 | `ENVIRONMENT` | No | `development` | `development` or `production` |
+| `FRONTEND_URL` | No | `http://localhost:3000` | Frontend URL for OAuth redirect |
+| `QUEUE_PROVIDER` | No | `redis` | `redis` (local) or `sqs` (AWS) |
+| `SQS_ANALYSIS_URL` | If sqs | — | SQS analysis queue URL |
+| `SQS_SNAPSHOT_URL` | If sqs | — | SQS snapshot queue URL |
+| `SQS_AI_EXPLAIN_URL` | If sqs | — | SQS AI explanation queue URL |
+| `WORKER_ENABLED` | No | `true` | Enable background job worker |
+| `HTTP_ENABLED` | No | `true` | Enable HTTP server |
 
 ---
 
@@ -335,7 +402,9 @@ cd frontend && npm run dev
 | PGN parsing | ✅ Working |
 | Stockfish integration | ✅ Working |
 | Game analysis pipeline | ✅ Fixed — proper FEN progression via `notnil/chess` |
-| Redis queue + worker | ✅ Working |
+| Redis queue (local) | ✅ Working |
+| SQS queue (production) | ✅ Working |
+| Worker (all job types) | ✅ Working |
 | Snapshot creation | ✅ Working |
 | Share links | ✅ Working |
 | AI explanations (OpenRouter) | ✅ Working |
@@ -346,7 +415,9 @@ cd frontend && npm run dev
 | Frontend analysis page | ✅ Working |
 | Frontend review page | ✅ Working |
 | Frontend share page | ✅ Working |
-| CI/CD pipeline | ⚠️ Deploy step placeholder |
+| CI/CD pipeline | ✅ ECR push + ECS deploy on master |
+| Terraform (AWS) | ✅ 13 files — VPC, ECS, Aurora, SQS, ALB, IAM |
+| Dockerfile | ✅ Multi-stage, Go 1.25 + stockfish |
 | Docker Compose (local) | ✅ Configured |
 | Docker Compose (prod) | ✅ Configured |
 | Structured logging | ✅ `log/slog` + JSON in production |
@@ -369,5 +440,5 @@ Types: feat | fix | refactor | test | docs | chore | security | perf
 
 ---
 
-*Last Updated: 2026-05-19*
-*Overall Production Readiness: ~90% (remaining: D6 deploy config, E7-E8 frontend tests)*
+*Last Updated: 2026-05-21*
+*Overall Production Readiness: ~97% (remaining: E7-E8 frontend tests, HTTPS/TLS on ALB)*

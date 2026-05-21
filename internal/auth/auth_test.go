@@ -46,6 +46,13 @@ func TestValidateJWT_ValidToken(t *testing.T) {
 		t.Errorf("expected user_id 'user1', got '%s'", claims.UserID)
 	}
 
+	if claims.ExpiresAt == nil {
+		t.Error("expected ExpiresAt to be set")
+	}
+	if claims.IssuedAt == nil {
+		t.Error("expected IssuedAt to be set")
+	}
+
 	if claims.Email != "test@example.com" {
 		t.Errorf("expected email 'test@example.com', got '%s'", claims.Email)
 	}

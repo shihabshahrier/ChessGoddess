@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/chessgoddess/chesslens/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -200,7 +201,7 @@ func TestSnapshotHandlers_NoUserID_ListByUser(t *testing.T) {
 // --- Auth handlers ---
 
 func TestAuthHandlers_GoogleCallback_NoState(t *testing.T) {
-	h := NewAuthHandlers(nil, nil)
+	h := NewAuthHandlers(nil, nil, &config.Config{FrontendURL: "http://localhost:3000"})
 
 	r := gin.New()
 	r.GET("/auth/google/callback", h.GoogleCallback)
@@ -216,7 +217,7 @@ func TestAuthHandlers_GoogleCallback_NoState(t *testing.T) {
 }
 
 func TestAuthHandlers_GoogleCallback_MissingCode(t *testing.T) {
-	h := NewAuthHandlers(nil, nil)
+	h := NewAuthHandlers(nil, nil, &config.Config{FrontendURL: "http://localhost:3000"})
 
 	r := gin.New()
 	r.GET("/auth/google/callback", h.GoogleCallback)

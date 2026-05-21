@@ -121,28 +121,48 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    needs: [backend-test, backend-build, frontend-build]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build backend Docker image
-        run: docker build -t chesslens-backend -f docker/backend/Dockerfile .
-
-      - name: Build frontend Docker image
-        run: docker build -t chesslens-frontend -f docker/frontend/Dockerfile ./frontend
-
   deploy:
-    name: Deploy
+    name: Deploy to AWS
     runs-on: ubuntu-latest
     needs: [backend-test, backend-lint, backend-build, frontend-test, frontend-build]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy (configure Cloud Run or ECS in AGENT.md Phase D6)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Deploy step not yet configured — see AGENT.md Phase D, task D6"
-          echo "Options: gcloud run deploy / aws ecs update-service / fly deploy"
+          docker build -t $ECR_REGISTRY/chesslens:$IMAGE_TAG -t $ECR_REGISTRY/chesslens:latest .
+          docker push $ECR_REGISTRY/chesslens:$IMAGE_TAG
+          docker push $ECR_REGISTRY/chesslens:latest
+
+      - name: Deploy API service
+        run: |
+          aws ecs update-service \
+            --cluster chesslens \
+            --service chesslens-api \
+            --force-new-deployment \
+            --no-cli-pager
+
+      - name: Deploy Worker service
+        run: |
+          aws ecs update-service \
+            --cluster chesslens \
+            --service chesslens-worker \
+            --force-new-deployment \
+            --no-cli-pager
