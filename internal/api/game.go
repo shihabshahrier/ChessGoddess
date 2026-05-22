@@ -176,6 +176,19 @@ func (h *GameHandlers) GetAnalysis(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"session": session})
 }
 
+func (h *GameHandlers) GetAnalysisMoves(c *gin.Context) {
+	if h.analysisService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "analysis service unavailable"})
+		return
+	}
+	moves, err := h.analysisService.GetMovesBySessionID(context.Background(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load moves"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"moves": moves})
+}
+
 func (h *GameHandlers) CreateSnapshot(c *gin.Context) {
 	sessionID := c.Query("session_id")
 	if sessionID == "" {

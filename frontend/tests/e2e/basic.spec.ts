@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('ChessLens Home Page', () => {
+test.describe('ChessGoddess Home Page', () => {
   test('should load the home page', async ({ page }) => {
     await page.goto('/')
     
-    await expect(page).toHaveTitle(/ChessLens/)
+    await expect(page).toHaveTitle(/ChessGoddess/)
     
     const heading = page.getByRole('heading', { name: /See Chess/ })
     await expect(heading).toBeVisible()

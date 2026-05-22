@@ -1,5 +1,5 @@
 // Game API calls.
-import type { Game, AnalysisSession } from '../types';
+import type { Game, AnalysisSession, Move } from '../types';
 import { apiClient } from './client';
 
 export async function uploadGame(pgn: string): Promise<{ game_id: string }> {
@@ -28,5 +28,10 @@ export async function createAnalysis(gameId: string, depth = 20): Promise<{ sess
 
 export async function getAnalysis(sessionId: string): Promise<{ session: AnalysisSession }> {
   const { data } = await apiClient.get(`/analysis/${sessionId}`);
+  return data;
+}
+
+export async function getAnalysisMoves(sessionId: string): Promise<{ moves: Move[] }> {
+  const { data } = await apiClient.get(`/analysis/${sessionId}/moves`);
   return data;
 }

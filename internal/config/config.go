@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -20,6 +21,7 @@ type Config struct {
 	R2Endpoint     string
 	OpenRouterKey  string
 	StockfishPath    string
+	EnginePoolSize   int
 	Port             string
 	Environment      string
 	FrontendURL      string
@@ -44,6 +46,7 @@ func Load() (*Config, error) {
 		R2Endpoint:     getEnv("R2_ENDPOINT", ""),
 		OpenRouterKey:  getEnv("OPENROUTER_API_KEY", ""),
 		StockfishPath:  getEnv("STOCKFISH_PATH", "stockfish"),
+		EnginePoolSize: getEnvInt("ENGINE_POOL_SIZE", 2),
 		Port:           getEnv("PORT", "8080"),
 		Environment:    getEnv("ENVIRONMENT", "development"),
 		AllowedOrigins:  parseOrigins(getEnv("ALLOWED_ORIGINS", "http://localhost:3000")),
@@ -82,6 +85,15 @@ func (c *Config) GoogleRedirectURL() string {
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil {
+			return n
+		}
 	}
 	return fallback
 }

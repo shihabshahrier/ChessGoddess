@@ -25,7 +25,16 @@ export interface Game {
   updated_at: string;
 }
 
-export type MoveClassification = 'blunder' | 'mistake' | 'inaccuracy' | 'good' | 'excellent' | 'best';
+export type MoveClassification =
+  | 'brilliant'
+  | 'great'
+  | 'best'
+  | 'excellent'
+  | 'good'
+  | 'book'
+  | 'inaccuracy'
+  | 'mistake'
+  | 'blunder';
 
 export interface Move {
   id: string;
@@ -34,7 +43,12 @@ export interface Move {
   fen: string;
   san: string;
   evaluation: number;
+  eval_before: number;
+  eval_after: number;
+  cp_loss: number;
+  accuracy: number;
   best_move: string;
+  best_line: string;
   classification: MoveClassification;
   depth: number;
   created_at: string;
@@ -49,6 +63,8 @@ export interface AnalysisSession {
   engine_config: string;
   depth: number;
   status: AnalysisStatus;
+  accuracy_white: number;
+  accuracy_black: number;
   started_at: string;
   completed_at: string | null;
   created_at: string;

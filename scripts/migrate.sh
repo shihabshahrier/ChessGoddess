@@ -8,5 +8,8 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "Running migrations..."
-psql "$DATABASE_URL" -f migrations/001_initial_schema.sql
+for f in migrations/*.sql; do
+  echo "  applying $f"
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
 echo "Migrations complete."

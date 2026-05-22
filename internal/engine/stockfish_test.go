@@ -1,85 +1,47 @@
 package engine
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestParseEvaluation_Centipawn(t *testing.T) {
-	line := "info depth 10 seldepth 15 score cp 50 pv e4 e5"
-	
-	eval := parseEvaluation(line)
-	
-	if eval != 0.50 {
-		t.Errorf("expected 0.50, got %f", eval)
+func TestParseInfoLine_Centipawn(t *testing.T) {
+	l := parseInfoLine("info depth 18 seldepth 24 multipv 1 score cp 55 nodes 100 pv e2e4 e7e5 g1f3")
+	if l == nil {
+		t.Fatal("expected a line, got nil")
+	}
+	if l.Depth != 18 || l.Rank != 1 || l.ScoreCP != 55 || l.Mate != 0 {
+		t.Errorf("unexpected line: %+v", l)
+	}
+	if len(l.PV) != 3 || l.PV[0] != "e2e4" {
+		t.Errorf("unexpected pv: %v", l.PV)
 	}
 }
 
-func TestParseEvaluation_NegativeCentipawn(t *testing.T) {
-	line := "info depth 10 seldepth 15 score cp -30 pv e4 e5"
-	
-	eval := parseEvaluation(line)
-	
-	if eval != -0.30 {
-		t.Errorf("expected -0.30, got %f", eval)
+func TestParseInfoLine_Mate(t *testing.T) {
+	l := parseInfoLine("info depth 20 multipv 2 score mate -3 pv h7h8q")
+	if l == nil {
+		t.Fatal("expected a line, got nil")
+	}
+	if l.Mate != -3 || l.Rank != 2 {
+		t.Errorf("unexpected line: %+v", l)
 	}
 }
 
-func TestParseEvaluation_MatePositive(t *testing.T) {
-	line := "info depth 20 seldepth 25 score mate 3 pv Qh5"
-	
-	eval := parseEvaluation(line)
-	
-	if eval != 100.0 {
-		t.Errorf("expected 100.0, got %f", eval)
+func TestParseInfoLine_NoPV(t *testing.T) {
+	if l := parseInfoLine("info depth 1 score cp 0 nodes 20"); l != nil {
+		t.Errorf("expected nil for info line without pv, got %+v", l)
 	}
 }
 
-func TestParseEvaluation_MateNegative(t *testing.T) {
-	line := "info depth 20 seldepth 25 score mate -2 pv Qh5"
-	
-	eval := parseEvaluation(line)
-	
-	if eval != -100.0 {
-		t.Errorf("expected -100.0, got %f", eval)
+func TestLineScore(t *testing.T) {
+	if got := (Line{ScoreCP: 120}).Score(); got != 120 {
+		t.Errorf("cp score = %d, want 120", got)
 	}
-}
-
-func TestParseEvaluation_Zero(t *testing.T) {
-	line := "info depth 10 seldepth 15 score cp 0 pv e4"
-	
-	eval := parseEvaluation(line)
-	
-	if eval != 0.0 {
-		t.Errorf("expected 0.0, got %f", eval)
+	if (Line{Mate: 1}).Score() <= (Line{Mate: 5}).Score() {
+		t.Error("a faster mate should score higher")
 	}
-}
-
-func TestParseDepth(t *testing.T) {
-	line := "info depth 15 seldepth 20 score cp 30 pv e4"
-	
-	depth := parseDepth(line)
-	
-	if depth != 15 {
-		t.Errorf("expected depth 15, got %d", depth)
+	if (Line{Mate: -1}).Score() >= (Line{Mate: -5}).Score() {
+		t.Error("a faster loss should score lower")
 	}
-}
-
-func TestParsePV(t *testing.T) {
-	line := "info depth 10 score cp 50 pv e4 e5 Nf3 Nc6"
-	
-	pv := parsePV(line)
-	
-	if pv != "e4" {
-		t.Errorf("expected 'e4', got '%s'", pv)
-	}
-}
-
-func TestParsePV_Empty(t *testing.T) {
-	line := "info depth 10 score cp 50"
-	
-	pv := parsePV(line)
-	
-	if pv != "" {
-		t.Errorf("expected empty string, got '%s'", pv)
+	if (Line{Mate: 1}).Score() <= (Line{ScoreCP: 9000}).Score() {
+		t.Error("a mate should outrank any centipawn score")
 	}
 }

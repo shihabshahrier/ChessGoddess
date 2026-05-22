@@ -32,16 +32,18 @@ type Game struct {
 }
 
 type AnalysisSession struct {
-	ID           string     `json:"id" db:"id"`
-	GameID       string     `json:"game_id" db:"game_id"`
-	UserID       string     `json:"user_id" db:"user_id"`
-	EngineConfig string     `json:"engine_config" db:"engine_config"`
-	Depth        int        `json:"depth" db:"depth"`
-	Status       string     `json:"status" db:"status"` // pending, running, completed, failed
-	StartedAt    time.Time  `json:"started_at" db:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at" db:"completed_at"`
-	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
+	ID            string     `json:"id" db:"id"`
+	GameID        string     `json:"game_id" db:"game_id"`
+	UserID        string     `json:"user_id" db:"user_id"`
+	EngineConfig  string     `json:"engine_config" db:"engine_config"`
+	Depth         int        `json:"depth" db:"depth"`
+	Status        string     `json:"status" db:"status"` // pending, running, completed, failed
+	AccuracyWhite float64    `json:"accuracy_white" db:"accuracy_white"`
+	AccuracyBlack float64    `json:"accuracy_black" db:"accuracy_black"`
+	StartedAt     time.Time  `json:"started_at" db:"started_at"`
+	CompletedAt   *time.Time `json:"completed_at" db:"completed_at"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type Move struct {
@@ -50,9 +52,14 @@ type Move struct {
 	MoveNumber     int       `json:"move_number" db:"move_number"`
 	FEN            string    `json:"fen" db:"fen"`
 	SAN            string    `json:"san" db:"san"`
-	Evaluation     float64   `json:"evaluation" db:"evaluation"`
-	BestMove       string    `json:"best_move" db:"best_move"`
-	Classification string    `json:"classification" db:"classification"` // blunder, mistake, inaccuracy, good, excellent, best
+	Evaluation     float64   `json:"evaluation" db:"evaluation"`         // eval after the move, pawns, white POV
+	EvalBefore     float64   `json:"eval_before" db:"eval_before"`       // best eval available before the move, white POV
+	EvalAfter      float64   `json:"eval_after" db:"eval_after"`         // eval after the move, white POV
+	CPLoss         float64   `json:"cp_loss" db:"cp_loss"`               // centipawns lost vs best (>= 0)
+	Accuracy       float64   `json:"accuracy" db:"accuracy"`             // 0-100 move accuracy
+	BestMove       string    `json:"best_move" db:"best_move"`           // UCI long-algebraic
+	BestLine       string    `json:"best_line" db:"best_line"`           // engine PV, space-separated UCI
+	Classification string    `json:"classification" db:"classification"` // brilliant, great, best, excellent, good, book, inaccuracy, mistake, blunder
 	Depth          int       `json:"depth" db:"depth"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }

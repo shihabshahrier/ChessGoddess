@@ -36,9 +36,15 @@ func (h *VisionHandlers) ImageToFEN(c *gin.Context) {
 		return
 	}
 
+	if len(imageData) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty image file"})
+		return
+	}
+
 	fen, err := h.visionClient.ImageToFEN(c.Request.Context(), imageData)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to extract FEN from image"})
+		// Surface the real reason — unsupported format, unreadable position, etc.
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -78,9 +84,15 @@ func (h *VisionHandlers) ImageToFENURL(c *gin.Context) {
 		return
 	}
 
+	if len(imageData) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty image file"})
+		return
+	}
+
 	fen, err := h.visionClient.ImageToFEN(c.Request.Context(), imageData)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to extract FEN from image"})
+		// Surface the real reason — unsupported format, unreadable position, etc.
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 

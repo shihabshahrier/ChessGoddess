@@ -119,22 +119,24 @@ func (r *AnalysisSessionRepository) Create(ctx context.Context, session *model.A
 
 func (r *AnalysisSessionRepository) GetByID(ctx context.Context, id string) (*model.AnalysisSession, error) {
 	query := `
-		SELECT id, game_id, user_id, engine_config, depth, status, started_at, completed_at, created_at, updated_at
+		SELECT id, game_id, user_id, engine_config, depth, status,
+		       accuracy_white, accuracy_black, started_at, completed_at, created_at, updated_at
 		FROM analysis_sessions
 		WHERE id = $1
 	`
 	session := &model.AnalysisSession{}
 	var engineConfig []byte
-	
+
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&session.ID, &session.GameID, &session.UserID, &engineConfig, &session.Depth,
-		&session.Status, &session.StartedAt, &session.CompletedAt, &session.CreatedAt, &session.UpdatedAt,
+		&session.Status, &session.AccuracyWhite, &session.AccuracyBlack,
+		&session.StartedAt, &session.CompletedAt, &session.CreatedAt, &session.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get analysis session: %w", err)
 	}
-	
+
 	session.EngineConfig = string(engineConfig)
 	return session, nil
 }
@@ -144,6 +146,15 @@ func (r *AnalysisSessionRepository) UpdateStatus(ctx context.Context, id, status
 	_, err := r.pool.Exec(ctx, query, status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to update session status: %w", err)
+	}
+	return nil
+}
+
+func (r *AnalysisSessionRepository) UpdateAccuracy(ctx context.Context, id string, white, black float64) error {
+	query := `UPDATE analysis_sessions SET accuracy_white = $1, accuracy_black = $2, updated_at = $3 WHERE id = $4`
+	_, err := r.pool.Exec(ctx, query, white, black, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update session accuracy: %w", err)
 	}
 	return nil
 }

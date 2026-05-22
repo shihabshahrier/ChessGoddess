@@ -1,3 +1,4 @@
+// Package engine drives a UCI chess engine (Stockfish) for position evaluation.
 package engine
 
 import (
@@ -5,21 +6,48 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
-type MoveEvaluation struct {
-	Move     string  `json:"move"`
-	SAN      string  `json:"san"`
-	FEN      string  `json:"fen"`
-	Eval     float64 `json:"eval"`
-	BestMove string  `json:"best_move"`
-	Depth    int     `json:"depth"`
+// MateScore is the centipawn magnitude used to represent a forced mate.
+const MateScore = 100000
+
+// Line is one engine principal variation, scored from the side-to-move POV.
+type Line struct {
+	Rank    int      `json:"rank"`     // MultiPV rank, 1 = best
+	Depth   int      `json:"depth"`    // search depth reached
+	ScoreCP int      `json:"score_cp"` // centipawns (0 when Mate != 0)
+	Mate    int      `json:"mate"`     // moves to mate; sign = side-to-move POV; 0 if none
+	PV      []string `json:"pv"`       // principal variation, UCI long-algebraic
 }
 
+// Score collapses cp/mate into one comparable centipawn value (side-to-move POV).
+// A faster mate ranks above a slower one; a faster loss ranks below a slower one.
+func (l Line) Score() int {
+	switch {
+	case l.Mate > 0:
+		return MateScore - l.Mate
+	case l.Mate < 0:
+		return -MateScore - l.Mate
+	default:
+		return l.ScoreCP
+	}
+}
+
+// Evaluation is the engine's verdict on a position.
+type Evaluation struct {
+	FEN      string `json:"fen"`
+	Depth    int    `json:"depth"`
+	BestMove string `json:"best_move"` // UCI long-algebraic
+	Lines    []Line `json:"lines"`     // sorted by rank; Lines[0] is best
+}
+
+// Engine is a single Stockfish process. Evaluate is safe for serial use;
+// concurrent callers should go through a Pool.
 type Engine struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -29,21 +57,21 @@ type Engine struct {
 
 func New(stockfishPath string) (*Engine, error) {
 	cmd := exec.Command(stockfishPath)
-	
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
-	
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-	
+
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start stockfish: %w", err)
 	}
-	
+
 	return &Engine{
 		cmd:    cmd,
 		stdin:  stdin,
@@ -51,133 +79,99 @@ func New(stockfishPath string) (*Engine, error) {
 	}, nil
 }
 
+// Initialize completes the UCI handshake and waits for the engine to be ready.
 func (e *Engine) Initialize() error {
 	if err := e.sendCommand("uci"); err != nil {
 		return err
 	}
-	
-	if err := e.waitForReady(); err != nil {
+	if err := e.waitFor("uciok"); err != nil {
 		return err
 	}
-	
-	return e.sendCommand("isready")
+	if err := e.sendCommand("isready"); err != nil {
+		return err
+	}
+	return e.waitFor("readyok")
 }
 
-func (e *Engine) SetPosition(fen string) error {
-	return e.sendCommand(fmt.Sprintf("position fen %s", fen))
-}
-
-func (e *Engine) Analyze(depth int) ([]MoveEvaluation, error) {
+// Evaluate searches a position to the given depth, returning up to multipv lines.
+func (e *Engine) Evaluate(fen string, depth, multipv int) (*Evaluation, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
+	if depth < 1 {
+		depth = 12
+	}
+	if multipv < 1 {
+		multipv = 1
+	}
+
+	if err := e.sendCommand(fmt.Sprintf("setoption name MultiPV value %d", multipv)); err != nil {
+		return nil, err
+	}
+	if err := e.sendCommand("position fen " + fen); err != nil {
+		return nil, err
+	}
 	if err := e.sendCommand(fmt.Sprintf("go depth %d", depth)); err != nil {
 		return nil, err
 	}
-	
-	var evaluations []MoveEvaluation
-	bestMove := ""
-	var eval float64
-	
-	for {
-		line, err := e.stdout.ReadString('\n')
-		if err != nil {
-			break
-		}
-		
-		line = strings.TrimSpace(line)
-		
-		if strings.HasPrefix(line, "bestmove") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				bestMove = parts[1]
-			}
-			break
-		}
-		
-		if strings.HasPrefix(line, "info") && strings.Contains(line, "score") {
-			eval = parseEvaluation(line)
-			depth := parseDepth(line)
-			pv := parsePV(line)
-			
-			if pv != "" {
-				evaluations = append(evaluations, MoveEvaluation{
-					BestMove: pv,
-					Eval:     eval,
-					Depth:    depth,
-				})
-			}
-		}
-	}
-	
-	if len(evaluations) > 0 {
-		evaluations[len(evaluations)-1].BestMove = bestMove
-	}
-	
-	return evaluations, nil
-}
 
-func (e *Engine) AnalyzeMove(fen, move string, depth int) (*MoveEvaluation, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	
-	if err := e.SetPosition(fen); err != nil {
-		return nil, err
-	}
-	
-	if err := e.sendCommand(fmt.Sprintf("go movetime %d", 1000)); err != nil {
-		return nil, err
-	}
-	
+	lines := make(map[int]Line)
 	var bestMove string
-	var eval float64
-	var bestDepth int
-	
-	timeout := time.After(5 * time.Second)
-	done := make(chan bool)
-	
+	done := make(chan error, 1)
+
 	go func() {
 		for {
-			line, err := e.stdout.ReadString('\n')
+			raw, err := e.stdout.ReadString('\n')
 			if err != nil {
-				done <- false
+				done <- err
 				return
 			}
-			
-			line = strings.TrimSpace(line)
-			
-			if strings.HasPrefix(line, "bestmove") {
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					bestMove = parts[1]
+			text := strings.TrimSpace(raw)
+			if strings.HasPrefix(text, "bestmove") {
+				if f := strings.Fields(text); len(f) >= 2 {
+					bestMove = f[1]
 				}
-				done <- true
+				done <- nil
 				return
 			}
-			
-			if strings.HasPrefix(line, "info") && strings.Contains(line, "score") {
-				eval = parseEvaluation(line)
-				bestDepth = parseDepth(line)
+			if strings.HasPrefix(text, "info") && strings.Contains(text, " pv ") {
+				if pl := parseInfoLine(text); pl != nil {
+					lines[pl.Rank] = *pl
+				}
 			}
 		}
 	}()
-	
+
 	select {
-	case <-timeout:
-		return nil, fmt.Errorf("analysis timeout")
-	case success := <-done:
-		if !success {
-			return nil, fmt.Errorf("analysis failed")
+	case err := <-done:
+		if err != nil {
+			return nil, fmt.Errorf("engine read failed: %w", err)
+		}
+	case <-time.After(90 * time.Second):
+		_ = e.sendCommand("stop")
+		if err := <-done; err != nil {
+			return nil, fmt.Errorf("engine evaluation timed out: %w", err)
 		}
 	}
-	
-	return &MoveEvaluation{
-		Move:     move,
-		FEN:      fen,
-		Eval:     eval,
-		BestMove: bestMove,
-		Depth:    bestDepth,
-	}, nil
+
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("engine returned no lines for %q", fen)
+	}
+
+	eval := &Evaluation{FEN: fen, BestMove: bestMove}
+	for _, l := range lines {
+		eval.Lines = append(eval.Lines, l)
+	}
+	sort.Slice(eval.Lines, func(i, j int) bool {
+		return eval.Lines[i].Rank < eval.Lines[j].Rank
+	})
+	eval.Depth = eval.Lines[0].Depth
+	return eval, nil
+}
+
+func (e *Engine) Close() error {
+	_ = e.sendCommand("quit")
+	return e.cmd.Wait()
 }
 
 func (e *Engine) sendCommand(cmd string) error {
@@ -185,81 +179,50 @@ func (e *Engine) sendCommand(cmd string) error {
 	return err
 }
 
-func (e *Engine) waitForReady() error {
+func (e *Engine) waitFor(token string) error {
 	for {
-		line, err := e.stdout.ReadString('\n')
+		text, err := e.stdout.ReadString('\n')
 		if err != nil {
 			return err
 		}
-		
-		if strings.TrimSpace(line) == "uciok" {
+		if strings.TrimSpace(text) == token {
 			return nil
 		}
 	}
 }
 
-func (e *Engine) Close() error {
-	e.sendCommand("quit")
-	return e.cmd.Wait()
-}
+// parseInfoLine extracts one PV line from a UCI "info ... pv ..." line.
+// Returns nil for info lines that carry no principal variation.
+func parseInfoLine(text string) *Line {
+	fields := strings.Fields(text)
+	line := &Line{Rank: 1}
 
-func parseEvaluation(line string) float64 {
-	parts := strings.Split(line, "score ")
-	if len(parts) < 2 {
-		return 0
-	}
-	
-	scorePart := parts[1]
-	
-	if strings.HasPrefix(scorePart, "cp ") {
-		cpStr := strings.Fields(scorePart)[1]
-		cp, err := strconv.Atoi(cpStr)
-		if err != nil {
-			return 0
+	for i := 0; i < len(fields); i++ {
+		switch fields[i] {
+		case "depth":
+			if i+1 < len(fields) {
+				line.Depth, _ = strconv.Atoi(fields[i+1])
+			}
+		case "multipv":
+			if i+1 < len(fields) {
+				line.Rank, _ = strconv.Atoi(fields[i+1])
+			}
+		case "score":
+			if i+2 < len(fields) {
+				switch fields[i+1] {
+				case "cp":
+					line.ScoreCP, _ = strconv.Atoi(fields[i+2])
+				case "mate":
+					line.Mate, _ = strconv.Atoi(fields[i+2])
+				}
+			}
+		case "pv":
+			line.PV = append([]string(nil), fields[i+1:]...)
+			if len(line.PV) == 0 {
+				return nil
+			}
+			return line
 		}
-		return float64(cp) / 100.0
 	}
-	
-	if strings.HasPrefix(scorePart, "mate ") {
-		mateStr := strings.Fields(scorePart)[1]
-		mate, err := strconv.Atoi(mateStr)
-		if err != nil {
-			return 0
-		}
-		if mate > 0 {
-			return 100.0
-		}
-		return -100.0
-	}
-	
-	return 0
-}
-
-func parseDepth(line string) int {
-	parts := strings.Split(line, "depth ")
-	if len(parts) < 2 {
-		return 0
-	}
-	
-	depthStr := strings.Fields(parts[1])[0]
-	depth, err := strconv.Atoi(depthStr)
-	if err != nil {
-		return 0
-	}
-	
-	return depth
-}
-
-func parsePV(line string) string {
-	parts := strings.Split(line, " pv ")
-	if len(parts) < 2 {
-		return ""
-	}
-	
-	pv := strings.Fields(parts[1])
-	if len(pv) > 0 {
-		return pv[0]
-	}
-	
-	return ""
+	return nil
 }

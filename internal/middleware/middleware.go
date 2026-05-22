@@ -108,23 +108,24 @@ func RateLimiter(r rate.Limit, b int) gin.HandlerFunc {
 
 func Auth(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
-			c.Abort()
-			return
+		// Accept the token from the Authorization header or the auth_token
+		// cookie — the OAuth flow issues an HttpOnly cookie.
+		tokenString := ""
+		if h := c.GetHeader("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			tokenString = strings.TrimPrefix(h, "Bearer ")
+		} else if cookie, err := c.Cookie("auth_token"); err == nil {
+			tokenString = cookie
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			c.Abort()
 			return
 		}
 
 		claims, err := auth.ValidateJWT(tokenString, jwtSecret)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired session"})
 			c.Abort()
 			return
 		}
@@ -132,6 +133,7 @@ func Auth(jwtSecret string) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("email", claims.Email)
 		c.Set("name", claims.Name)
+		c.Set("avatar_url", claims.AvatarURL)
 		c.Next()
 	}
 }

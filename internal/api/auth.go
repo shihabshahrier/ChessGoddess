@@ -142,5 +142,23 @@ func (h *AuthHandlers) GoogleCallback(c *gin.Context) {
 	}
 
 	h.service.SetAuthCookie(c.Writer, jwtToken)
-	c.Redirect(http.StatusFound, h.config.FrontendURL+"/dashboard")
+	c.Redirect(http.StatusFound, h.config.FrontendURL+"/?auth=success")
+}
+
+// Me returns the currently authenticated user (from the validated token).
+func (h *AuthHandlers) Me(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":         c.GetString("user_id"),
+			"email":      c.GetString("email"),
+			"name":       c.GetString("name"),
+			"avatar_url": c.GetString("avatar_url"),
+		},
+	})
+}
+
+// Logout clears the auth cookie.
+func (h *AuthHandlers) Logout(c *gin.Context) {
+	h.service.ClearAuthCookie(c.Writer)
+	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }

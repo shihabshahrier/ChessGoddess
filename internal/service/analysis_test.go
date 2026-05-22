@@ -47,26 +47,58 @@ func TestExtractMovesFromPGN_ResultOnly(t *testing.T) {
 	}
 }
 
-func TestClassifyMove(t *testing.T) {
+func TestClassify(t *testing.T) {
 	cases := []struct {
-		eval float64
-		want string
+		name       string
+		cpLoss     float64
+		ply        int
+		isBest     bool
+		onlyGood   bool
+		evalBefore int
+		want       string
 	}{
-		{0.0, "best"},
-		{0.15, "best"},
-		{0.25, "good"},
-		{0.6, "inaccuracy"},
-		{2.0, "mistake"},
-		{4.0, "blunder"},
-		{-4.0, "blunder"},
-		{-2.0, "mistake"},
-		{-0.6, "inaccuracy"},
+		{"engine best move", 0, 30, true, false, 100, "best"},
+		{"only good move, not winning", 0, 30, true, true, 0, "brilliant"},
+		{"only good move, already winning", 0, 30, true, true, 300, "great"},
+		{"quiet opening move", 25, 8, false, false, 0, "book"},
+		{"near best", 5, 30, false, false, 0, "excellent"},
+		{"small slip", 30, 30, false, false, 0, "good"},
+		{"inaccuracy", 70, 30, false, false, 0, "inaccuracy"},
+		{"mistake", 120, 30, false, false, 0, "mistake"},
+		{"blunder", 400, 30, false, false, 0, "blunder"},
 	}
 
 	for _, tc := range cases {
-		got := classifyMove(tc.eval)
+		got := classify(tc.cpLoss, tc.ply, tc.isBest, tc.onlyGood, tc.evalBefore)
 		if got != tc.want {
-			t.Errorf("classifyMove(%v) = %q, want %q", tc.eval, got, tc.want)
+			t.Errorf("%s: classify = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestMoveAccuracy(t *testing.T) {
+	// A move that keeps the win probability flat scores near 100.
+	if acc := moveAccuracy(60, 60); acc < 99 {
+		t.Errorf("flat move accuracy = %.1f, want ~100", acc)
+	}
+	// A move that craters win probability scores low.
+	if acc := moveAccuracy(80, 20); acc > 30 {
+		t.Errorf("blunder accuracy = %.1f, want low", acc)
+	}
+	// Accuracy never leaves the 0-100 range.
+	if acc := moveAccuracy(100, 0); acc < 0 || acc > 100 {
+		t.Errorf("accuracy %.1f out of range", acc)
+	}
+}
+
+func TestPlayableMoves(t *testing.T) {
+	got := playableMoves([]string{"e4", "e5", "Nf3", "1-0"})
+	if len(got) != 3 {
+		t.Fatalf("expected 3 moves, got %d: %v", len(got), got)
+	}
+	for _, m := range got {
+		if m == "1-0" {
+			t.Error("result token leaked into playable moves")
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/chessgoddess/chessgoddess/internal/auth"
 	"github.com/chessgoddess/chessgoddess/internal/config"
 	"github.com/chessgoddess/chessgoddess/internal/db"
+	"github.com/chessgoddess/chessgoddess/internal/engine"
 	"github.com/chessgoddess/chessgoddess/internal/middleware"
 	"github.com/chessgoddess/chessgoddess/internal/repository"
 	"github.com/chessgoddess/chessgoddess/internal/service"
@@ -48,7 +49,7 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 	aiRepo := repository.NewAIExplanationRepository(database.Pool)
 
 	// Analysis service
-	analysisSvc, err := service.NewAnalysisService(cfg.StockfishPath, moveRepo, sessionRepo)
+	analysisSvc, err := service.NewAnalysisService(cfg.StockfishPath, cfg.EnginePoolSize, moveRepo, sessionRepo)
 	if err != nil {
 		slog.Warn("stockfish unavailable", "error", err)
 	}
@@ -91,12 +92,19 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 		visionClient = service.NewVisionClient(cfg.OpenRouterKey, "")
 	}
 
+	// Engine pool — shared with the analysis service when Stockfish is available.
+	var enginePool *engine.Pool
+	if analysisSvc != nil {
+		enginePool = analysisSvc.Pool()
+	}
+
 	// Handlers
 	authHandlers := NewAuthHandlers(authService, userRepo, cfg)
 	gameHandlers := NewGameHandlers(gameRepo, sessionRepo, analysisSvc, q)
 	snapshotHandlers := NewSnapshotHandlers(snapshotRepo)
 	aiHandlers := NewAIHandlers(aiService, moveRepo)
 	visionHandlers := NewVisionHandlers(visionClient)
+	engineHandlers := NewEngineHandlers(enginePool)
 
 	// Routes
 	r.GET("/health", healthHandler)
@@ -106,18 +114,33 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 	{
 		api.GET("/snapshots/:token", snapshotHandlers.GetByShareToken)
 
+		// Public — board eval. Bounded by the rate limiter and the engine pool;
+		// the heavy continuous eval runs client-side (WASM).
+		api.POST("/engine/evaluate", engineHandlers.Evaluate)
+
+		// Public — stateless board-image recognition (no persistence, no user data).
+		visionGroup := api.Group("/vision")
+		{
+			visionGroup.POST("/image-to-fen", visionHandlers.ImageToFEN)
+			visionGroup.POST("/image-to-fen-url", visionHandlers.ImageToFENURL)
+		}
+
 		authGroup := api.Group("/auth")
 		{
 			authGroup.GET("/google/url", authHandlers.GetGoogleAuthURL)
 			authGroup.GET("/google/callback", authHandlers.GoogleCallback)
+			authGroup.POST("/logout", authHandlers.Logout)
 		}
 
 		protected := api.Group("")
 		protected.Use(middleware.Auth(cfg.JWTSecret))
 		{
+			protected.GET("/auth/me", authHandlers.Me)
+
 			protected.POST("/games/upload", gameHandlers.UploadGame)
 			protected.POST("/analysis", gameHandlers.CreateAnalysis)
 			protected.GET("/analysis/:id", gameHandlers.GetAnalysis)
+			protected.GET("/analysis/:id/moves", gameHandlers.GetAnalysisMoves)
 			protected.GET("/games", gameHandlers.ListGames)
 			protected.GET("/games/:id", gameHandlers.GetGame)
 			protected.DELETE("/games/:id", gameHandlers.DeleteGame)
@@ -129,12 +152,6 @@ func New(cfg *config.Config, database *db.DB, authService *auth.Service) *Server
 				aiGroup.POST("/explain", aiHandlers.ExplainMove)
 				aiGroup.POST("/explain-blunder", aiHandlers.ExplainBlunder)
 				aiGroup.GET("/explanation/:move_id", aiHandlers.GetExplanation)
-			}
-
-			visionGroup := protected.Group("/vision")
-			{
-				visionGroup.POST("/image-to-fen", visionHandlers.ImageToFEN)
-				visionGroup.POST("/image-to-fen-url", visionHandlers.ImageToFENURL)
 			}
 		}
 	}
