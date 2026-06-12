@@ -267,3 +267,7 @@ The production environment is fully automated using **Terraform** inside `terraf
 ## 🛡️ License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+📖 **Project page:** https://shihub.online/projects/chess-goddess
