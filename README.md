@@ -270,4 +270,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-📖 **Project page:** https://shihub.online/projects/chess-goddess
+📖 **Project page:** https://shihub.site/projects/chess-goddess
